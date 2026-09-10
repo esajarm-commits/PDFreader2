@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.PDFReader" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">#7FB9E6</item>
+        <item name="colorPrimaryVariant">#D6BEEA</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:statusBarColor">#7FB9E6</item>
+    </style>
+</resources>
