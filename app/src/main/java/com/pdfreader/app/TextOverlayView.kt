@@ -26,14 +26,14 @@ class TextOverlayView(context: Context, attrs: AttributeSet?) : View(context, at
         textSize = 40f
     }
     
-    // Riferimento alla matrice del DrawingView
-    var matrix: Matrix? = null
+    // Rinomina "matrix" in "transformMatrix" per evitare conflitto con View.getMatrix()
+    var transformMatrix: Matrix? = null
     
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         
         canvas.save()
-        matrix?.let { canvas.concat(it) }
+        transformMatrix?.let { canvas.concat(it) }
         
         textItems.forEach { item ->
             textPaint.color = item.color
