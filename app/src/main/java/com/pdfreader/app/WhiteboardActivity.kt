@@ -3,11 +3,10 @@ package com.pdfreader.app
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Matrix
 import android.os.Bundle
-import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -23,6 +22,7 @@ class WhiteboardActivity : AppCompatActivity() {
     private lateinit var textOverlayView: TextOverlayView
     private lateinit var textZoomLevel: TextView
     private lateinit var btnPen: Button
+    private lateinit var btnEraser: Button
     private lateinit var btnMove: Button
     private lateinit var btnText: Button
     private lateinit var btnColor: Button
@@ -33,7 +33,8 @@ class WhiteboardActivity : AppCompatActivity() {
     
     private var isPenMode = true
     private var currentColor = Color.BLACK
-    private var strokeWidth = 4f
+    private var strokeWidth = 5f
+    private var eraserSize = 60f
     private var textSize = 40f
     
     private val colorPalette = intArrayOf(
@@ -52,6 +53,7 @@ class WhiteboardActivity : AppCompatActivity() {
         textOverlayView = findViewById(R.id.textOverlayView)
         textZoomLevel = findViewById(R.id.textZoomLevel)
         btnPen = findViewById(R.id.btnPen)
+        btnEraser = findViewById(R.id.btnEraser)
         btnMove = findViewById(R.id.btnMove)
         btnText = findViewById(R.id.btnText)
         btnColor = findViewById(R.id.btnColor)
@@ -72,17 +74,25 @@ class WhiteboardActivity : AppCompatActivity() {
         btnPen.setOnClickListener {
             isPenMode = true
             drawingView.enableDrawing(true)
+            drawingView.setEraserMode(false)
             btnPen.setBackgroundColor(Color.parseColor("#4CAF50"))
+            btnEraser.setBackgroundColor(Color.parseColor("#9E9E9E"))
             btnMove.setBackgroundColor(Color.parseColor("#9E9E9E"))
-            Toast.makeText(this, "✏️ Penna attiva - disegna con un dito", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "✏️ Penna - disegna con un dito", Toast.LENGTH_SHORT).show()
+        }
+        
+        btnEraser.setOnClickListener {
+            showEraserSizeDialog()
         }
         
         btnMove.setOnClickListener {
             isPenMode = false
             drawingView.enableDrawing(false)
+            drawingView.setEraserMode(false)
             btnMove.setBackgroundColor(Color.parseColor("#FF5722"))
             btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
-            Toast.makeText(this, "✋ Muovi - trascina con un dito per spostarti", Toast.LENGTH_SHORT).show()
+            btnEraser.setBackgroundColor(Color.parseColor("#9E9E9E"))
+            Toast.makeText(this, "✋ Muovi - trascina con un dito", Toast.LENGTH_SHORT).show()
         }
         
         btnText.setOnClickListener {
@@ -121,13 +131,47 @@ class WhiteboardActivity : AppCompatActivity() {
             saveWhiteboard()
         }
         
-        // Aggiorna indicatore zoom
         drawingView.post(object : Runnable {
             override fun run() {
                 updateZoomLabel()
                 drawingView.postDelayed(this, 150)
             }
         })
+    }
+    
+    private fun showEraserSizeDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_eraser_size, null)
+        val seekBar = dialogView.findViewById<SeekBar>(R.id.seekBarEraserSize)
+        val textValue = dialogView.findViewById<TextView>(R.id.textEraserValue)
+        
+        seekBar.progress = eraserSize.toInt() - 20  // min 20
+        textValue.text = "${eraserSize.toInt()} px"
+        
+        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val size = (progress + 20).toFloat()
+                textValue.text = "${size.toInt()} px"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        
+        AlertDialog.Builder(this)
+            .setTitle("🧽 Dimensione Gomma")
+            .setView(dialogView)
+            .setPositiveButton("Attiva") { _, _ ->
+                eraserSize = (seekBar.progress + 20).toFloat()
+                drawingView.setEraserSize(eraserSize)
+                drawingView.setEraserMode(true)
+                drawingView.enableDrawing(true)
+                isPenMode = false
+                btnEraser.setBackgroundColor(Color.parseColor("#FF9800"))
+                btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
+                btnMove.setBackgroundColor(Color.parseColor("#9E9E9E"))
+                Toast.makeText(this, "🧽 Gomma attiva - ${eraserSize.toInt()}px", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
     }
     
     private fun updateZoomLabel() {
@@ -146,9 +190,8 @@ class WhiteboardActivity : AppCompatActivity() {
             .setPositiveButton("Aggiungi") { _, _ ->
                 val text = editText.text.toString()
                 if (text.isNotEmpty()) {
-                    // Posizione in coordinate mondo (visibile nell'area corrente)
-                    val x = 50f + (textOverlayView.textItems.size * 30f)
-                    val y = 150f + (textOverlayView.textItems.size * 100f)
+                    val x = 100f
+                    val y = 200f + (textOverlayView.textItems.size * 100f)
                     textOverlayView.addText(text, x, y, currentColor, textSize)
                     Toast.makeText(this, "✅ Testo aggiunto", Toast.LENGTH_SHORT).show()
                 }
@@ -193,7 +236,6 @@ class WhiteboardActivity : AppCompatActivity() {
             }
             
             Toast.makeText(this, "💾 Lavagna salvata: $fileName", Toast.LENGTH_LONG).show()
-            
         } catch (e: Exception) {
             Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
         }

@@ -67,8 +67,17 @@
                 android:id="@+id/btnPen"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="✏️ Penna"
+                android:text="✏️"
                 android:backgroundTint="#4CAF50"
+                android:textColor="#FFFFFF"
+                android:layout_margin="4dp" />
+
+            <Button
+                android:id="@+id/btnEraser"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🧽"
+                android:backgroundTint="#9E9E9E"
                 android:textColor="#FFFFFF"
                 android:layout_margin="4dp" />
 
@@ -76,7 +85,7 @@
                 android:id="@+id/btnMove"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="✋ Muovi"
+                android:text="✋"
                 android:backgroundTint="#9E9E9E"
                 android:textColor="#FFFFFF"
                 android:layout_margin="4dp" />
@@ -85,7 +94,7 @@
                 android:id="@+id/btnText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🅰️ Testo"
+                android:text="🅰️"
                 android:backgroundTint="#2196F3"
                 android:textColor="#FFFFFF"
                 android:layout_margin="4dp" />
@@ -103,7 +112,7 @@
                 android:id="@+id/btnCenter"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🎯 100%"
+                android:text="🎯"
                 android:backgroundTint="#B7C96A"
                 android:textColor="#3D2C1E"
                 android:layout_margin="4dp" />
