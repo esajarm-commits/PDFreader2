@@ -45,5 +45,14 @@
         android:backgroundTint="#7FB9E6"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintRight_toRightOf="parent" />
-
+<Button
+    android:id="@+id/btnWhiteboard"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="🎨 Lavagna"
+    android:backgroundTint="#D6BEEA"
+    android:textColor="#3D2C1E"
+    android:layout_margin="16dp"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintLeft_toLeftOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>
