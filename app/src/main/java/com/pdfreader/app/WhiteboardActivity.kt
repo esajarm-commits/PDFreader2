@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -19,9 +20,11 @@ class WhiteboardActivity : AppCompatActivity() {
     private lateinit var toolbar: Toolbar
     private lateinit var drawingView: DrawingView
     private lateinit var textOverlayView: TextOverlayView
+    private lateinit var textZoomLevel: TextView
     private lateinit var btnPen: Button
     private lateinit var btnText: Button
     private lateinit var btnColor: Button
+    private lateinit var btnZoomReset: Button
     private lateinit var btnUndo: Button
     private lateinit var btnClear: Button
     private lateinit var btnSave: Button
@@ -45,9 +48,11 @@ class WhiteboardActivity : AppCompatActivity() {
         toolbar = findViewById(R.id.toolbar)
         drawingView = findViewById(R.id.drawingView)
         textOverlayView = findViewById(R.id.textOverlayView)
+        textZoomLevel = findViewById(R.id.textZoomLevel)
         btnPen = findViewById(R.id.btnPen)
         btnText = findViewById(R.id.btnText)
         btnColor = findViewById(R.id.btnColor)
+        btnZoomReset = findViewById(R.id.btnZoomReset)
         btnUndo = findViewById(R.id.btnUndo)
         btnClear = findViewById(R.id.btnClear)
         btnSave = findViewById(R.id.btnSave)
@@ -63,23 +68,27 @@ class WhiteboardActivity : AppCompatActivity() {
         btnPen.setOnClickListener {
             isPenMode = true
             drawingView.enableDrawing(true)
-            textOverlayView.visibility = View.GONE
-            drawingView.visibility = View.VISIBLE
             btnPen.setBackgroundColor(Color.parseColor("#4CAF50"))
             btnText.setBackgroundColor(Color.parseColor("#9E9E9E"))
-            Toast.makeText(this, "✏️ Modalità Penna", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "✏️ Penna attiva - disegna con un dito", Toast.LENGTH_SHORT).show()
         }
         
         btnText.setOnClickListener {
             isPenMode = false
             drawingView.enableDrawing(false)
-            showAddTextDialog()
             btnText.setBackgroundColor(Color.parseColor("#2196F3"))
             btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
+            showAddTextDialog()
         }
         
         btnColor.setOnClickListener {
             showColorPicker()
+        }
+        
+        btnZoomReset.setOnClickListener {
+            drawingView.resetZoom()
+            updateZoomLabel()
+            Toast.makeText(this, "🔍 Zoom resettato", Toast.LENGTH_SHORT).show()
         }
         
         btnUndo.setOnClickListener {
@@ -107,6 +116,20 @@ class WhiteboardActivity : AppCompatActivity() {
         btnSave.setOnClickListener {
             saveWhiteboard()
         }
+        
+        // Aggiorna l'indicatore di zoom periodicamente
+        drawingView.post(object : Runnable {
+            override fun run() {
+                updateZoomLabel()
+                drawingView.postDelayed(this, 200)
+            }
+        })
+    }
+    
+    private fun updateZoomLabel() {
+        val scale = drawingView.getScaleFactor()
+        textZoomLevel.text = "${(scale * 100).toInt()}%"
+        btnZoomReset.text = "🔍 ${(scale * 100).toInt()}%"
     }
     
     private fun showAddTextDialog() {
@@ -119,7 +142,6 @@ class WhiteboardActivity : AppCompatActivity() {
             .setPositiveButton("Aggiungi") { _, _ ->
                 val text = editText.text.toString()
                 if (text.isNotEmpty()) {
-                    // Posizione centrale dello schermo
                     val x = 100f
                     val y = 200f + (textOverlayView.textItems.size * 80f)
                     textOverlayView.addText(text, x, y, currentColor, textSize)
@@ -149,7 +171,6 @@ class WhiteboardActivity : AppCompatActivity() {
     
     private fun saveWhiteboard() {
         try {
-            // Crea un bitmap combinato
             val bitmap = Bitmap.createBitmap(
                 drawingView.width,
                 drawingView.height,
@@ -160,7 +181,6 @@ class WhiteboardActivity : AppCompatActivity() {
             drawingView.draw(canvas)
             textOverlayView.draw(canvas)
             
-            // Salva nella memoria interna
             val fileName = "whiteboard_${System.currentTimeMillis()}.png"
             val file = File(filesDir, fileName)
             FileOutputStream(file).use { out ->
