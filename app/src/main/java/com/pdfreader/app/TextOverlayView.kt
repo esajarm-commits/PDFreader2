@@ -3,6 +3,7 @@ package com.pdfreader.app
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.View
@@ -25,13 +26,22 @@ class TextOverlayView(context: Context, attrs: AttributeSet?) : View(context, at
         textSize = 40f
     }
     
+    // Riferimento alla matrice del DrawingView
+    var matrix: Matrix? = null
+    
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        
+        canvas.save()
+        matrix?.let { canvas.concat(it) }
+        
         textItems.forEach { item ->
             textPaint.color = item.color
             textPaint.textSize = item.textSize
             canvas.drawText(item.text, item.x, item.y, textPaint)
         }
+        
+        canvas.restore()
     }
     
     fun addText(text: String, x: Float, y: Float, color: Int, size: Float) {

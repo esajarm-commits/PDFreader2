@@ -3,6 +3,7 @@ package com.pdfreader.app
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -22,16 +23,17 @@ class WhiteboardActivity : AppCompatActivity() {
     private lateinit var textOverlayView: TextOverlayView
     private lateinit var textZoomLevel: TextView
     private lateinit var btnPen: Button
+    private lateinit var btnMove: Button
     private lateinit var btnText: Button
     private lateinit var btnColor: Button
-    private lateinit var btnZoomReset: Button
+    private lateinit var btnCenter: Button
     private lateinit var btnUndo: Button
     private lateinit var btnClear: Button
     private lateinit var btnSave: Button
     
     private var isPenMode = true
     private var currentColor = Color.BLACK
-    private var strokeWidth = 6f
+    private var strokeWidth = 4f
     private var textSize = 40f
     
     private val colorPalette = intArrayOf(
@@ -50,9 +52,10 @@ class WhiteboardActivity : AppCompatActivity() {
         textOverlayView = findViewById(R.id.textOverlayView)
         textZoomLevel = findViewById(R.id.textZoomLevel)
         btnPen = findViewById(R.id.btnPen)
+        btnMove = findViewById(R.id.btnMove)
         btnText = findViewById(R.id.btnText)
         btnColor = findViewById(R.id.btnColor)
-        btnZoomReset = findViewById(R.id.btnZoomReset)
+        btnCenter = findViewById(R.id.btnCenter)
         btnUndo = findViewById(R.id.btnUndo)
         btnClear = findViewById(R.id.btnClear)
         btnSave = findViewById(R.id.btnSave)
@@ -62,6 +65,7 @@ class WhiteboardActivity : AppCompatActivity() {
         toolbar.setNavigationOnClickListener { finish() }
         
         setupButtons()
+        updateZoomLabel()
     }
     
     private fun setupButtons() {
@@ -69,15 +73,19 @@ class WhiteboardActivity : AppCompatActivity() {
             isPenMode = true
             drawingView.enableDrawing(true)
             btnPen.setBackgroundColor(Color.parseColor("#4CAF50"))
-            btnText.setBackgroundColor(Color.parseColor("#9E9E9E"))
+            btnMove.setBackgroundColor(Color.parseColor("#9E9E9E"))
             Toast.makeText(this, "✏️ Penna attiva - disegna con un dito", Toast.LENGTH_SHORT).show()
         }
         
-        btnText.setOnClickListener {
+        btnMove.setOnClickListener {
             isPenMode = false
             drawingView.enableDrawing(false)
-            btnText.setBackgroundColor(Color.parseColor("#2196F3"))
+            btnMove.setBackgroundColor(Color.parseColor("#FF5722"))
             btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
+            Toast.makeText(this, "✋ Muovi - trascina con un dito per spostarti", Toast.LENGTH_SHORT).show()
+        }
+        
+        btnText.setOnClickListener {
             showAddTextDialog()
         }
         
@@ -85,18 +93,14 @@ class WhiteboardActivity : AppCompatActivity() {
             showColorPicker()
         }
         
-        btnZoomReset.setOnClickListener {
-            drawingView.resetZoom()
+        btnCenter.setOnClickListener {
+            drawingView.centerView()
             updateZoomLabel()
-            Toast.makeText(this, "🔍 Zoom resettato", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "🎯 Vista centrata", Toast.LENGTH_SHORT).show()
         }
         
         btnUndo.setOnClickListener {
-            if (isPenMode) {
-                drawingView.undo()
-            } else {
-                textOverlayView.undo()
-            }
+            drawingView.undo()
             Toast.makeText(this, "↩️ Annullato", Toast.LENGTH_SHORT).show()
         }
         
@@ -117,11 +121,11 @@ class WhiteboardActivity : AppCompatActivity() {
             saveWhiteboard()
         }
         
-        // Aggiorna l'indicatore di zoom periodicamente
+        // Aggiorna indicatore zoom
         drawingView.post(object : Runnable {
             override fun run() {
                 updateZoomLabel()
-                drawingView.postDelayed(this, 200)
+                drawingView.postDelayed(this, 150)
             }
         })
     }
@@ -129,7 +133,7 @@ class WhiteboardActivity : AppCompatActivity() {
     private fun updateZoomLabel() {
         val scale = drawingView.getScaleFactor()
         textZoomLevel.text = "${(scale * 100).toInt()}%"
-        btnZoomReset.text = "🔍 ${(scale * 100).toInt()}%"
+        btnCenter.text = "🎯 ${(scale * 100).toInt()}%"
     }
     
     private fun showAddTextDialog() {
@@ -142,8 +146,9 @@ class WhiteboardActivity : AppCompatActivity() {
             .setPositiveButton("Aggiungi") { _, _ ->
                 val text = editText.text.toString()
                 if (text.isNotEmpty()) {
-                    val x = 100f
-                    val y = 200f + (textOverlayView.textItems.size * 80f)
+                    // Posizione in coordinate mondo (visibile nell'area corrente)
+                    val x = 50f + (textOverlayView.textItems.size * 30f)
+                    val y = 150f + (textOverlayView.textItems.size * 100f)
                     textOverlayView.addText(text, x, y, currentColor, textSize)
                     Toast.makeText(this, "✅ Testo aggiunto", Toast.LENGTH_SHORT).show()
                 }
