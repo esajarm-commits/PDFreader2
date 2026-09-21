@@ -1,16 +1,12 @@
 package com.pdfreader.app
 
 import android.content.Context
-import android.graphics.BlendMode
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PointF
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffXfermode
-import android.os.Build
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
@@ -28,28 +24,23 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         strokeWidth = 5f
     }
     
-    // Paint per la gomma (usa CLEAR per cancellare)
+    // Paint per la gomma (disegna in bianco come lo sfondo)
     private var eraserPaint = Paint().apply {
         isAntiAlias = true
         style = Paint.Style.STROKE
         strokeJoin = Paint.Join.ROUND
         strokeCap = Paint.Cap.ROUND
-        color = Color.BLACK
+        color = Color.WHITE
         strokeWidth = 40f
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            blendMode = BlendMode.CLEAR
-        } else {
-            xfermode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
-        }
     }
     
-    // Percorsi disegnati (con Paint associato)
+    // Percorsi disegnati
     private var currentPath = Path()
     private var currentPaint: Paint = drawPaint
     private var paths = mutableListOf<Pair<Path, Paint>>()
     
-    // Griglia di sfondo - MOLTO PIÙ GRANDE
-    private val gridSize = 250f  // era 80f
+    // Griglia di sfondo grande
+    private val gridSize = 250f
     private val gridPaint = Paint().apply {
         color = Color.parseColor("#EEEEEE")
         strokeWidth = 1f
@@ -81,7 +72,7 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     private var lastY = 0f
     private var isTwoFingerPanning = false
     
-    // Scale detector (pinch)
+    // Scale detector
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
             val scale = detector.scaleFactor
@@ -96,7 +87,6 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         
         override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
             isScaling = true
-            // Cancella il path corrente quando inizia lo zoom
             if (!currentPath.isEmpty) {
                 currentPath = Path()
             }
@@ -118,20 +108,14 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         canvas.save()
         canvas.concat(matrix)
         
-        // 1. Disegna la griglia di sfondo (in coordinate mondo)
+        // 1. Disegna la griglia di sfondo
         drawGrid(canvas)
         
-        // 2. Salva un layer per i disegni (così la gomma non cancella la griglia)
-        val layerId = canvas.saveLayer(null, null)
-        
-        // 3. Disegna tutti i percorsi
+        // 2. Disegna tutti i percorsi (inclusa la gomma bianca)
         paths.forEach { (savedPath, savedPaint) ->
             canvas.drawPath(savedPath, savedPaint)
         }
         canvas.drawPath(currentPath, currentPaint)
-        
-        // 4. Ripristina il layer
-        canvas.restoreToCount(layerId)
         
         canvas.restore()
     }
@@ -142,19 +126,11 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val visibleRect = android.graphics.RectF(0f, 0f, width.toFloat(), height.toFloat())
         inverseMatrix.mapRect(visibleRect)
         
-        // Calcola il range di linee da disegnare
-        val startX = (Math.floor((visibleRect.left / gridSize).toDouble()) * gridSize).toFloat()
-        val startY = (Math.floor((visibleRect.top / gridSize).toDouble()) * gridSize).toFloat()
-        
-        // Calcola il passo in base allo zoom per evitare troppe linee
-        val effectiveScale = scaleFactor
         var step = gridSize
-        // Se zoom out troppo, aumenta lo step per non disegnare troppe linee
-        while (step * effectiveScale < 30f) {
+        while (step * scaleFactor < 30f) {
             step *= 4
         }
         
-        // Linee verticali
         var x = (Math.floor((visibleRect.left / step).toDouble()) * step).toFloat()
         while (x < visibleRect.right) {
             val isMajor = (x / step).toInt() % 5 == 0
@@ -165,7 +141,6 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             x += step
         }
         
-        // Linee orizzontali
         var y = (Math.floor((visibleRect.top / step).toDouble()) * step).toFloat()
         while (y < visibleRect.bottom) {
             val isMajor = (y / step).toInt() % 5 == 0
@@ -178,9 +153,7 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
     
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // Sempre al scale detector per pinch
         scaleDetector.onTouchEvent(event)
-        
         if (isScaling) return true
         
         val pointerCount = event.pointerCount
@@ -191,21 +164,16 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 lastY = event.y
                 if (isDrawingEnabled) {
                     startPath(event.x, event.y)
-                } else {
-                    isTwoFingerPanning = false
                 }
                 return true
             }
             
             MotionEvent.ACTION_POINTER_DOWN -> {
-                // Secondo dito appoggiato
                 isTwoFingerPanning = true
-                // Cancella il path corrente (l'utente vuole muoversi, non disegnare)
                 if (!currentPath.isEmpty) {
                     currentPath = Path()
                     invalidate()
                 }
-                // Imposta il focus al centro tra le due dita
                 if (pointerCount >= 2) {
                     val focusX = (event.getX(0) + event.getX(1)) / 2f
                     val focusY = (event.getY(0) + event.getY(1)) / 2f
@@ -218,7 +186,6 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             
             MotionEvent.ACTION_MOVE -> {
                 if (isTwoFingerPanning && pointerCount >= 2) {
-                    // Pan con due dita (funziona in ogni modalità!)
                     val focusX = (event.getX(0) + event.getX(1)) / 2f
                     val focusY = (event.getY(0) + event.getY(1)) / 2f
                     
@@ -232,7 +199,6 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                     return true
                 }
                 
-                // Disegno con un dito
                 if (pointerCount == 1 && isDrawingEnabled && !currentPath.isEmpty) {
                     continuePath(event.x, event.y)
                 }
@@ -240,7 +206,6 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
             }
             
             MotionEvent.ACTION_POINTER_UP -> {
-                // Un dito sollevato - rimane un dito
                 val remainingIndex = if (event.actionIndex == 0) 1 else 0
                 if (remainingIndex < event.pointerCount) {
                     lastX = event.getX(remainingIndex)
@@ -265,13 +230,14 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         val worldPoint = screenToWorld(screenX, screenY)
         currentPath = Path()
         currentPath.moveTo(worldPoint[0], worldPoint[1])
+        
         currentPaint = if (isEraserMode) eraserPaint else drawPaint
-        // Applica spessore inverso allo zoom (per avere dimensione apparente costante)
-        currentPaint.strokeWidth = if (isEraserMode) {
-            eraserPaint.strokeWidth / scaleFactor
-        } else {
-            drawPaint.strokeWidth / scaleFactor
-        }
+        
+        // Applica spessore inversamente proporzionale allo zoom
+        // così il tratto ha sempre la stessa dimensione visiva
+        val baseWidth = if (isEraserMode) eraserPaint.strokeWidth else drawPaint.strokeWidth
+        currentPaint.strokeWidth = baseWidth / scaleFactor
+        
         lastX = screenX
         lastY = screenY
         invalidate()

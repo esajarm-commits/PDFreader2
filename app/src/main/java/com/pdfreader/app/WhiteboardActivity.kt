@@ -31,7 +31,6 @@ class WhiteboardActivity : AppCompatActivity() {
     private lateinit var btnClear: Button
     private lateinit var btnSave: Button
     
-    private var isPenMode = true
     private var currentColor = Color.BLACK
     private var strokeWidth = 5f
     private var eraserSize = 60f
@@ -71,22 +70,25 @@ class WhiteboardActivity : AppCompatActivity() {
     }
     
     private fun setupButtons() {
+        // PENNA: click normale = attiva, click lungo = cambia dimensione
         btnPen.setOnClickListener {
-            isPenMode = true
-            drawingView.enableDrawing(true)
-            drawingView.setEraserMode(false)
-            btnPen.setBackgroundColor(Color.parseColor("#4CAF50"))
-            btnEraser.setBackgroundColor(Color.parseColor("#9E9E9E"))
-            btnMove.setBackgroundColor(Color.parseColor("#9E9E9E"))
-            Toast.makeText(this, "✏️ Penna - disegna con un dito", Toast.LENGTH_SHORT).show()
+            activatePen()
+        }
+        btnPen.setOnLongClickListener {
+            showPenSizeDialog()
+            true
         }
         
+        // GOMMA: click normale = attiva, click lungo = cambia dimensione
         btnEraser.setOnClickListener {
+            activateEraser()
+        }
+        btnEraser.setOnLongClickListener {
             showEraserSizeDialog()
+            true
         }
         
         btnMove.setOnClickListener {
-            isPenMode = false
             drawingView.enableDrawing(false)
             drawingView.setEraserMode(false)
             btnMove.setBackgroundColor(Color.parseColor("#FF5722"))
@@ -139,12 +141,68 @@ class WhiteboardActivity : AppCompatActivity() {
         })
     }
     
+    private fun activatePen() {
+        drawingView.enableDrawing(true)
+        drawingView.setEraserMode(false)
+        drawingView.setStrokeWidth(strokeWidth)
+        btnPen.setBackgroundColor(Color.parseColor("#4CAF50"))
+        btnEraser.setBackgroundColor(Color.parseColor("#9E9E9E"))
+        btnMove.setBackgroundColor(Color.parseColor("#9E9E9E"))
+        Toast.makeText(this, "✏️ Penna ${strokeWidth.toInt()}px", Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun activateEraser() {
+        drawingView.enableDrawing(true)
+        drawingView.setEraserMode(true)
+        drawingView.setEraserSize(eraserSize)
+        btnEraser.setBackgroundColor(Color.parseColor("#FF9800"))
+        btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
+        btnMove.setBackgroundColor(Color.parseColor("#9E9E9E"))
+        Toast.makeText(this, "🧽 Gomma ${eraserSize.toInt()}px", Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun showPenSizeDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_eraser_size, null)
+        val seekBar = dialogView.findViewById<SeekBar>(R.id.seekBarEraserSize)
+        val textValue = dialogView.findViewById<TextView>(R.id.textEraserValue)
+        val titleText = dialogView.findViewById<TextView>(R.id.textDialogTitle)
+        
+        // Cambia il titolo e i valori per la penna
+        titleText.text = "Dimensione Penna"
+        seekBar.max = 50
+        seekBar.progress = (strokeWidth - 1).toInt().coerceIn(0, 50)
+        textValue.text = "${strokeWidth.toInt()} px"
+        
+        seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val size = (progress + 1).toFloat()
+                textValue.text = "${size.toInt()} px"
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+        })
+        
+        AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setPositiveButton("Applica") { _, _ ->
+                strokeWidth = (seekBar.progress + 1).toFloat()
+                drawingView.setStrokeWidth(strokeWidth)
+                activatePen()
+                Toast.makeText(this, "✏️ Penna ${strokeWidth.toInt()}px", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+    
     private fun showEraserSizeDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_eraser_size, null)
         val seekBar = dialogView.findViewById<SeekBar>(R.id.seekBarEraserSize)
         val textValue = dialogView.findViewById<TextView>(R.id.textEraserValue)
+        val titleText = dialogView.findViewById<TextView>(R.id.textDialogTitle)
         
-        seekBar.progress = eraserSize.toInt() - 20  // min 20
+        titleText.text = "Dimensione Gomma"
+        seekBar.max = 200
+        seekBar.progress = (eraserSize - 20).toInt().coerceIn(0, 200)
         textValue.text = "${eraserSize.toInt()} px"
         
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -157,18 +215,12 @@ class WhiteboardActivity : AppCompatActivity() {
         })
         
         AlertDialog.Builder(this)
-            .setTitle("🧽 Dimensione Gomma")
             .setView(dialogView)
-            .setPositiveButton("Attiva") { _, _ ->
+            .setPositiveButton("Applica") { _, _ ->
                 eraserSize = (seekBar.progress + 20).toFloat()
                 drawingView.setEraserSize(eraserSize)
-                drawingView.setEraserMode(true)
-                drawingView.enableDrawing(true)
-                isPenMode = false
-                btnEraser.setBackgroundColor(Color.parseColor("#FF9800"))
-                btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
-                btnMove.setBackgroundColor(Color.parseColor("#9E9E9E"))
-                Toast.makeText(this, "🧽 Gomma attiva - ${eraserSize.toInt()}px", Toast.LENGTH_SHORT).show()
+                activateEraser()
+                Toast.makeText(this, "🧽 Gomma ${eraserSize.toInt()}px", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Annulla", null)
             .show()
