@@ -14,32 +14,34 @@ import android.view.View
 
 class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs) {
     
-    // Paint per il disegno normale
-    private var drawPaint = Paint().apply {
-        isAntiAlias = true
-        style = Paint.Style.STROKE
-        strokeJoin = Paint.Join.ROUND
-        strokeCap = Paint.Cap.ROUND
-        color = Color.BLACK
-        strokeWidth = 5f
-    }
+    // Struttura per memorizzare un tratto
+    private data class Stroke(
+        val path: Path,
+        val baseWidth: Float,   // Larghezza in pixel SCHERMO (non mondo)
+        val color: Int,
+        val isEraser: Boolean
+    )
     
-    // Paint per la gomma (disegna in bianco come lo sfondo)
-    private var eraserPaint = Paint().apply {
-        isAntiAlias = true
-        style = Paint.Style.STROKE
-        strokeJoin = Paint.Join.ROUND
-        strokeCap = Paint.Cap.ROUND
-        color = Color.WHITE
-        strokeWidth = 40f
-    }
+    // Colori
+    private var penColor = Color.BLACK
+    private var penWidth = 5f         // in pixel schermo
+    private var eraserWidth = 60f     // in pixel schermo
     
-    // Percorsi disegnati
+    // Stato
+    private var isDrawingEnabled = true
+    private var isEraserMode = false
+    private var isScaling = false
+    
+    // Path corrente
     private var currentPath = Path()
-    private var currentPaint: Paint = drawPaint
-    private var paths = mutableListOf<Pair<Path, Paint>>()
+    private var currentBaseWidth = 5f
+    private var currentColor = Color.BLACK
+    private var currentIsEraser = false
     
-    // Griglia di sfondo grande
+    // Tutti i tratti
+    private val strokes = mutableListOf<Stroke>()
+    
+    // Griglia di sfondo
     private val gridSize = 250f
     private val gridPaint = Paint().apply {
         color = Color.parseColor("#EEEEEE")
@@ -54,25 +56,19 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         isAntiAlias = true
     }
     
-    // Matrice di trasformazione
+    // Matrice
     private val matrix = Matrix()
     private val inverseMatrix = Matrix()
-    
-    // Stato
     private var scaleFactor = 1f
     private val minScale = 0.05f
     private val maxScale = 20f
-    private var isDrawingEnabled = true
-    private var isEraserMode = false
-    private var isScaling = false
     
-    // Touch tracking
+    // Touch
     private val lastFocus = PointF()
     private var lastX = 0f
     private var lastY = 0f
     private var isTwoFingerPanning = false
     
-    // Scale detector
     private val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
         override fun onScale(detector: ScaleGestureDetector): Boolean {
             val scale = detector.scaleFactor
@@ -108,14 +104,35 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         canvas.save()
         canvas.concat(matrix)
         
-        // 1. Disegna la griglia di sfondo
+        // 1. Griglia
         drawGrid(canvas)
         
-        // 2. Disegna tutti i percorsi (inclusa la gomma bianca)
-        paths.forEach { (savedPath, savedPaint) ->
-            canvas.drawPath(savedPath, savedPaint)
+        // 2. Tutti i tratti salvati
+        strokes.forEach { stroke ->
+            val paint = Paint().apply {
+                isAntiAlias = true
+                style = Paint.Style.STROKE
+                strokeJoin = Paint.Join.ROUND
+                strokeCap = Paint.Cap.ROUND
+                color = if (stroke.isEraser) Color.WHITE else stroke.color
+                // Importante: dividi per scaleFactor per mantenere spessore visivo costante
+                strokeWidth = stroke.baseWidth / scaleFactor
+            }
+            canvas.drawPath(stroke.path, paint)
         }
-        canvas.drawPath(currentPath, currentPaint)
+        
+        // 3. Tratto corrente
+        if (!currentPath.isEmpty) {
+            val paint = Paint().apply {
+                isAntiAlias = true
+                style = Paint.Style.STROKE
+                strokeJoin = Paint.Join.ROUND
+                strokeCap = Paint.Cap.ROUND
+                color = if (currentIsEraser) Color.WHITE else currentColor
+                strokeWidth = currentBaseWidth / scaleFactor
+            }
+            canvas.drawPath(currentPath, paint)
+        }
         
         canvas.restore()
     }
@@ -134,20 +151,16 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         var x = (Math.floor((visibleRect.left / step).toDouble()) * step).toFloat()
         while (x < visibleRect.right) {
             val isMajor = (x / step).toInt() % 5 == 0
-            canvas.drawLine(
-                x, visibleRect.top, x, visibleRect.bottom,
-                if (isMajor) majorGridPaint else gridPaint
-            )
+            canvas.drawLine(x, visibleRect.top, x, visibleRect.bottom,
+                if (isMajor) majorGridPaint else gridPaint)
             x += step
         }
         
         var y = (Math.floor((visibleRect.top / step).toDouble()) * step).toFloat()
         while (y < visibleRect.bottom) {
             val isMajor = (y / step).toInt() % 5 == 0
-            canvas.drawLine(
-                visibleRect.left, y, visibleRect.right, y,
-                if (isMajor) majorGridPaint else gridPaint
-            )
+            canvas.drawLine(visibleRect.left, y, visibleRect.right, y,
+                if (isMajor) majorGridPaint else gridPaint)
             y += step
         }
     }
@@ -175,27 +188,25 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                     invalidate()
                 }
                 if (pointerCount >= 2) {
-                    val focusX = (event.getX(0) + event.getX(1)) / 2f
-                    val focusY = (event.getY(0) + event.getY(1)) / 2f
-                    lastFocus.set(focusX, focusY)
-                    lastX = focusX
-                    lastY = focusY
+                    val fx = (event.getX(0) + event.getX(1)) / 2f
+                    val fy = (event.getY(0) + event.getY(1)) / 2f
+                    lastFocus.set(fx, fy)
+                    lastX = fx
+                    lastY = fy
                 }
                 return true
             }
             
             MotionEvent.ACTION_MOVE -> {
                 if (isTwoFingerPanning && pointerCount >= 2) {
-                    val focusX = (event.getX(0) + event.getX(1)) / 2f
-                    val focusY = (event.getY(0) + event.getY(1)) / 2f
-                    
-                    val dx = focusX - lastX
-                    val dy = focusY - lastY
+                    val fx = (event.getX(0) + event.getX(1)) / 2f
+                    val fy = (event.getY(0) + event.getY(1)) / 2f
+                    val dx = fx - lastX
+                    val dy = fy - lastY
                     matrix.postTranslate(dx, dy)
                     invalidate()
-                    
-                    lastX = focusX
-                    lastY = focusY
+                    lastX = fx
+                    lastY = fy
                     return true
                 }
                 
@@ -231,12 +242,9 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         currentPath = Path()
         currentPath.moveTo(worldPoint[0], worldPoint[1])
         
-        currentPaint = if (isEraserMode) eraserPaint else drawPaint
-        
-        // Applica spessore inversamente proporzionale allo zoom
-        // così il tratto ha sempre la stessa dimensione visiva
-        val baseWidth = if (isEraserMode) eraserPaint.strokeWidth else drawPaint.strokeWidth
-        currentPaint.strokeWidth = baseWidth / scaleFactor
+        currentIsEraser = isEraserMode
+        currentColor = penColor
+        currentBaseWidth = if (isEraserMode) eraserWidth else penWidth
         
         lastX = screenX
         lastY = screenY
@@ -251,8 +259,12 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     
     private fun endPath() {
         if (!currentPath.isEmpty) {
-            val savedPaint = Paint(currentPaint)
-            paths.add(Path(currentPath) to savedPaint)
+            strokes.add(Stroke(
+                path = Path(currentPath),
+                baseWidth = currentBaseWidth,
+                color = currentColor,
+                isEraser = currentIsEraser
+            ))
             currentPath = Path()
             invalidate()
         }
@@ -269,15 +281,15 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     // === API PUBBLICHE ===
     
     fun setDrawingColor(color: Int) {
-        drawPaint.color = color
+        penColor = color
     }
     
     fun setStrokeWidth(width: Float) {
-        drawPaint.strokeWidth = width
+        penWidth = width
     }
     
     fun setEraserSize(size: Float) {
-        eraserPaint.strokeWidth = size
+        eraserWidth = size
     }
     
     fun setEraserMode(enabled: Boolean) {
@@ -295,14 +307,14 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
     
     fun undo() {
-        if (paths.isNotEmpty()) {
-            paths.removeAt(paths.size - 1)
+        if (strokes.isNotEmpty()) {
+            strokes.removeAt(strokes.size - 1)
             invalidate()
         }
     }
     
     fun clearAll() {
-        paths.clear()
+        strokes.clear()
         currentPath = Path()
         invalidate()
     }
