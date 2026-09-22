@@ -18,7 +18,19 @@
     <WebView
         android:id="@+id/webView"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:background="#FFFFFF" />
 
+    <Button
+        android:id="@+id/btnAddPage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="➕ Aggiungi Pagina"
+        android:backgroundTint="#4CAF50"
+        android:textColor="#FFFFFF"
+        android:layout_margin="8dp" />
+
 </LinearLayout>
+EOF
+
