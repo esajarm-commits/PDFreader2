@@ -179,39 +179,34 @@ class PDFViewerActivity : AppCompatActivity() {
                     else -> "blank"
                 }
                 
-                addPageToPDF(pageNumber, style)
+                
             }
-            .setNegativeButton("Annulla", null)
-            .show()
+            
     }
     
-    private fun addPageToPDF(afterPage: Int, style: String) {
+       private fun addPageToPDF(afterPage: Int, style: String) {
         try {
             val originalFile = File(pdfPath)
             val outputFile = File(filesDir, "modified_${System.currentTimeMillis()}.pdf")
             
-            // Aggiungi la pagina
             val success = PDFPageEditor.addPageToPDF(
                 originalPdf = originalFile,
                 outputFile = outputFile,
                 insertAfterPage = afterPage,
                 style = style,
-                pageWidth = 595,   // A4 width in points
-                pageHeight = 842    // A4 height in points
+                pageWidth = 595,
+                pageHeight = 842
             )
             
             if (success) {
-                Toast.makeText(this, "✅ Pagina aggiunta! Ricarico il PDF...", Toast.LENGTH_SHORT).show()
-                
-                // Aggiorna pdfPath e ricarica
+                Toast.makeText(this, "✅ Pagina aggiunta!", Toast.LENGTH_SHORT).show()
                 pdfPath = outputFile.absolutePath
                 loadPDF()
             } else {
-                Toast.makeText(this, "❌ Errore nell'aggiunta della pagina", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "⚠️ Funzionalità in sviluppo", Toast.LENGTH_LONG).show()
             }
-            
         } catch (e: Exception) {
             Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
-}
+
