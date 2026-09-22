@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Tipo di pagina"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#3D2C1E"
+        android:layout_marginBottom="12dp" />
+
+    <RadioGroup
+        android:id="@+id/radioGroupPageType"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/radioBlank"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⬜ Pagina bianca"
+            android:checked="true"
+            android:textColor="#3D2C1E" />
+
+        <RadioButton
+            android:id="@+id/radioLined"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📝 Pagina a righe"
+            android:textColor="#3D2C1E" />
+
+        <RadioButton
+            android:id="@+id/radioGrid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📐 Pagina a quadri"
+            android:textColor="#3D2C1E" />
+
+        <RadioButton
+            android:id="@+id/radioDotted"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔵 Pagina a punti"
+            android:textColor="#3D2C1E" />
+
+    </RadioGroup>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Inserisci dopo la pagina:"
+        android:textSize="14sp"
+        android:textColor="#666666"
+        android:layout_marginTop="16dp" />
+
+    <EditText
+        android:id="@+id/editPageNumber"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:hint="Numero pagina (es. 1)"
+        android:text="1" />
+
+</LinearLayout>
