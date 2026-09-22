@@ -4,12 +4,15 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import com.droidpdf.core.PdfDocument as DroidPdfDocument
+import com.droidpdf.core.PdfReader
 import java.io.File
 import java.io.FileOutputStream
 
 object PDFPageEditor {
     
-    fun createPageWithStyle(
+    // Crea una pagina con stile (bianca, righe, quadri, punti)
+    fun createStyledPage(
         pageWidth: Int,
         pageHeight: Int,
         pageNumber: Int,
@@ -21,7 +24,6 @@ object PDFPageEditor {
         val page = document.startPage(pageInfo)
         val canvas = page.canvas
         
-        // Sfondo bianco
         canvas.drawColor(Color.WHITE)
         
         val paint = Paint().apply {
@@ -32,7 +34,6 @@ object PDFPageEditor {
         
         when (style) {
             "lined" -> {
-                // Righe orizzontali ogni 40px
                 val spacing = 40f
                 var y = 60f
                 while (y < pageHeight - 60) {
@@ -41,15 +42,12 @@ object PDFPageEditor {
                 }
             }
             "grid" -> {
-                // Griglia di quadrati 40x40
                 val spacing = 40f
-                // Linee verticali
                 var x = 40f
                 while (x < pageWidth - 40) {
                     canvas.drawLine(x, 40f, x, pageHeight - 40f, paint)
                     x += spacing
                 }
-                // Linee orizzontali
                 var y = 40f
                 while (y < pageHeight - 40) {
                     canvas.drawLine(40f, y, pageWidth - 40f, y, paint)
@@ -57,7 +55,6 @@ object PDFPageEditor {
                 }
             }
             "dotted" -> {
-                // Punti ogni 40px
                 val spacing = 40f
                 val dotPaint = Paint().apply {
                     color = Color.parseColor("#999999")
@@ -74,7 +71,6 @@ object PDFPageEditor {
                     y += spacing
                 }
             }
-            // "blank" -> niente da disegnare
         }
         
         document.finishPage(page)
@@ -82,6 +78,7 @@ object PDFPageEditor {
         document.close()
     }
     
+    // Aggiunge una pagina a un PDF esistente
     fun addPageToPDF(
         originalPdf: File,
         outputFile: File,
@@ -91,28 +88,31 @@ object PDFPageEditor {
         pageHeight: Int
     ): Boolean {
         return try {
-            // Usa DroidPDF per inserire la pagina
-            val pdf = com.droidpdf.PdfDocument(
-                com.droidpdf.PdfReader(originalPdf.inputStream()),
+            // 1. Crea la pagina stilizzata in un file temporaneo
+            val tempPage = File.createTempFile("styled_page", ".pdf")
+            val tempStream = FileOutputStream(tempPage)
+            createStyledPage(pageWidth, pageHeight, 1, style, tempStream)
+            tempStream.close()
+            
+            // 2. Apri il PDF originale con DroidPDF
+            val pdf = DroidPdfDocument(
+                PdfReader(originalPdf.inputStream()),
                 FileOutputStream(outputFile)
             )
             
-            // Crea la pagina con stile
-            val tempFile = File.createTempFile("temp_page", ".pdf")
-            val tempStream = FileOutputStream(tempFile)
-            createPageWithStyle(pageWidth, pageHeight, 1, style, tempStream)
-            tempStream.close()
-            
-            // Inserisci la pagina dopo quella specificata
-            val tempPdf = com.droidpdf.PdfDocument(
-                com.droidpdf.PdfReader(tempFile.inputStream()),
+            // 3. Apri la pagina temporanea e inseriscila
+            val tempPdf = DroidPdfDocument(
+                PdfReader(tempPage.inputStream()),
                 FileOutputStream(File.createTempFile("dummy", ".pdf"))
             )
             
-            pdf.insertPage(insertAfterPage, tempPdf.getPage(0))
+            // Inserisci la pagina dopo quella specificata (indice 0-based)
+            val insertIndex = (insertAfterPage - 1).coerceAtLeast(0)
+            pdf.insertPage(insertIndex, tempPdf.getPage(0))
             
             pdf.close()
-            tempFile.delete()
+            tempPdf.close()
+            tempPage.delete()
             
             true
         } catch (e: Exception) {

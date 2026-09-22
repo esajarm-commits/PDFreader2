@@ -187,15 +187,28 @@ class PDFViewerActivity : AppCompatActivity() {
     
     private fun addPageToPDF(afterPage: Int, style: String) {
         try {
-            // Per ora mostriamo un messaggio (l'implementazione completa richiede DroidPDF)
-            Toast.makeText(
-                this, 
-                "📄 Pagina '$style' aggiunta dopo la pagina $afterPage\n\n(Implementazione in corso)", 
-                Toast.LENGTH_LONG
-            ).show()
+            val originalFile = File(pdfPath)
+            val outputFile = File(filesDir, "modified_${System.currentTimeMillis()}.pdf")
             
-            // TODO: Implementare con DroidPDF
-            // PDFPageEditor.addPageToPDF(...)
+            // Aggiungi la pagina
+            val success = PDFPageEditor.addPageToPDF(
+                originalPdf = originalFile,
+                outputFile = outputFile,
+                insertAfterPage = afterPage,
+                style = style,
+                pageWidth = 595,   // A4 width in points
+                pageHeight = 842    // A4 height in points
+            )
+            
+            if (success) {
+                Toast.makeText(this, "✅ Pagina aggiunta! Ricarico il PDF...", Toast.LENGTH_SHORT).show()
+                
+                // Aggiorna pdfPath e ricarica
+                pdfPath = outputFile.absolutePath
+                loadPDF()
+            } else {
+                Toast.makeText(this, "❌ Errore nell'aggiunta della pagina", Toast.LENGTH_LONG).show()
+            }
             
         } catch (e: Exception) {
             Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
