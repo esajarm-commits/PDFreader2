@@ -11,8 +11,8 @@ android {
         applicationId = "com.pdfreader.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.6"
+        versionCode = 9
+        versionName = "1.8"
     }
 
     buildFeatures {
@@ -36,6 +36,5 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.webkit:webkit:1.8.0")
     
-    // DroidPDF per aggiungere/rimuovere pagine
-    implementation("com.github.youichi-uda:droidpdf:v1.0.1")
+    // NON usiamo DroidPDF per ora
 }

@@ -70,23 +70,11 @@ class WhiteboardActivity : AppCompatActivity() {
     }
     
     private fun setupButtons() {
-        // PENNA: click normale = attiva, click lungo = cambia dimensione
-        btnPen.setOnClickListener {
-            activatePen()
-        }
-        btnPen.setOnLongClickListener {
-            showPenSizeDialog()
-            true
-        }
+        btnPen.setOnClickListener { activatePen() }
+        btnPen.setOnLongClickListener { showPenSizeDialog(); true }
         
-        // GOMMA: click normale = attiva, click lungo = cambia dimensione
-        btnEraser.setOnClickListener {
-            activateEraser()
-        }
-        btnEraser.setOnLongClickListener {
-            showEraserSizeDialog()
-            true
-        }
+        btnEraser.setOnClickListener { activateEraser() }
+        btnEraser.setOnLongClickListener { showEraserSizeDialog(); true }
         
         btnMove.setOnClickListener {
             drawingView.enableDrawing(false)
@@ -94,21 +82,15 @@ class WhiteboardActivity : AppCompatActivity() {
             btnMove.setBackgroundColor(Color.parseColor("#FF5722"))
             btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
             btnEraser.setBackgroundColor(Color.parseColor("#9E9E9E"))
-            Toast.makeText(this, "✋ Muovi - trascina con un dito", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "✋ Muovi", Toast.LENGTH_SHORT).show()
         }
         
-        btnText.setOnClickListener {
-            showAddTextDialog()
-        }
-        
-        btnColor.setOnClickListener {
-            showColorPicker()
-        }
+        btnText.setOnClickListener { showAddTextDialog() }
+        btnColor.setOnClickListener { showColorPicker() }
         
         btnCenter.setOnClickListener {
             drawingView.centerView()
             updateZoomLabel()
-            Toast.makeText(this, "🎯 Vista centrata", Toast.LENGTH_SHORT).show()
         }
         
         btnUndo.setOnClickListener {
@@ -119,19 +101,15 @@ class WhiteboardActivity : AppCompatActivity() {
         btnClear.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("Cancellare tutto?")
-                .setMessage("Vuoi cancellare tutta la lavagna?")
                 .setPositiveButton("Sì") { _, _ ->
                     drawingView.clearAll()
                     textOverlayView.clearAll()
-                    Toast.makeText(this, "🗑️ Lavagna cancellata", Toast.LENGTH_SHORT).show()
                 }
                 .setNegativeButton("No", null)
                 .show()
         }
         
-        btnSave.setOnClickListener {
-            saveWhiteboard()
-        }
+        btnSave.setOnClickListener { saveWhiteboard() }
         
         drawingView.post(object : Runnable {
             override fun run() {
@@ -148,7 +126,6 @@ class WhiteboardActivity : AppCompatActivity() {
         btnPen.setBackgroundColor(Color.parseColor("#4CAF50"))
         btnEraser.setBackgroundColor(Color.parseColor("#9E9E9E"))
         btnMove.setBackgroundColor(Color.parseColor("#9E9E9E"))
-        Toast.makeText(this, "✏️ Penna ${strokeWidth.toInt()}px", Toast.LENGTH_SHORT).show()
     }
     
     private fun activateEraser() {
@@ -158,7 +135,6 @@ class WhiteboardActivity : AppCompatActivity() {
         btnEraser.setBackgroundColor(Color.parseColor("#FF9800"))
         btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
         btnMove.setBackgroundColor(Color.parseColor("#9E9E9E"))
-        Toast.makeText(this, "🧽 Gomma ${eraserSize.toInt()}px", Toast.LENGTH_SHORT).show()
     }
     
     private fun showPenSizeDialog() {
@@ -167,16 +143,14 @@ class WhiteboardActivity : AppCompatActivity() {
         val textValue = dialogView.findViewById<TextView>(R.id.textEraserValue)
         val titleText = dialogView.findViewById<TextView>(R.id.textDialogTitle)
         
-        // Cambia il titolo e i valori per la penna
         titleText.text = "Dimensione Penna"
         seekBar.max = 50
-        seekBar.progress = (strokeWidth - 1).toInt().coerceIn(0, 50)
+        seekBar.progress = Math.max(0, Math.min(50, strokeWidth.toInt() - 1))
         textValue.text = "${strokeWidth.toInt()} px"
         
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val size = (progress + 1).toFloat()
-                textValue.text = "${size.toInt()} px"
+                textValue.text = "${progress + 1} px"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -188,7 +162,6 @@ class WhiteboardActivity : AppCompatActivity() {
                 strokeWidth = (seekBar.progress + 1).toFloat()
                 drawingView.setStrokeWidth(strokeWidth)
                 activatePen()
-                Toast.makeText(this, "✏️ Penna ${strokeWidth.toInt()}px", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Annulla", null)
             .show()
@@ -202,13 +175,12 @@ class WhiteboardActivity : AppCompatActivity() {
         
         titleText.text = "Dimensione Gomma"
         seekBar.max = 200
-        seekBar.progress = (eraserSize - 20).toInt().coerceIn(0, 200)
+        seekBar.progress = Math.max(0, Math.min(200, eraserSize.toInt() - 20))
         textValue.text = "${eraserSize.toInt()} px"
         
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                val size = (progress + 20).toFloat()
-                textValue.text = "${size.toInt()} px"
+                textValue.text = "${progress + 20} px"
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
@@ -220,7 +192,6 @@ class WhiteboardActivity : AppCompatActivity() {
                 eraserSize = (seekBar.progress + 20).toFloat()
                 drawingView.setEraserSize(eraserSize)
                 activateEraser()
-                Toast.makeText(this, "🧽 Gomma ${eraserSize.toInt()}px", Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton("Annulla", null)
             .show()
@@ -229,7 +200,6 @@ class WhiteboardActivity : AppCompatActivity() {
     private fun updateZoomLabel() {
         val scale = drawingView.getScaleFactor()
         textZoomLevel.text = "${(scale * 100).toInt()}%"
-        btnCenter.text = "🎯 ${(scale * 100).toInt()}%"
     }
     
     private fun showAddTextDialog() {
@@ -242,10 +212,7 @@ class WhiteboardActivity : AppCompatActivity() {
             .setPositiveButton("Aggiungi") { _, _ ->
                 val text = editText.text.toString()
                 if (text.isNotEmpty()) {
-                    val x = 100f
-                    val y = 200f + (textOverlayView.textItems.size * 100f)
-                    textOverlayView.addText(text, x, y, currentColor, textSize)
-                    Toast.makeText(this, "✅ Testo aggiunto", Toast.LENGTH_SHORT).show()
+                    textOverlayView.addText(text, 100f, 200f, currentColor, textSize)
                 }
             }
             .setNegativeButton("Annulla", null)
@@ -253,41 +220,31 @@ class WhiteboardActivity : AppCompatActivity() {
     }
     
     private fun showColorPicker() {
-        val colorNames = arrayOf(
-            "Nero", "Rosso", "Blu", "Verde", "Giallo",
-            "Arancione", "Viola", "Ciano", "Verde Chiaro",
-            "Grigio", "Marrone"
-        )
+        val colorNames = arrayOf("Nero", "Rosso", "Blu", "Verde", "Giallo",
+            "Arancione", "Viola", "Ciano", "Verde Chiaro", "Grigio", "Marrone")
         
         AlertDialog.Builder(this)
             .setTitle("Scegli colore")
             .setItems(colorNames) { _, which ->
                 currentColor = colorPalette[which]
                 drawingView.setDrawingColor(currentColor)
-                Toast.makeText(this, "Colore: ${colorNames[which]}", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
     
     private fun saveWhiteboard() {
         try {
-            val bitmap = Bitmap.createBitmap(
-                drawingView.width,
-                drawingView.height,
-                Bitmap.Config.ARGB_8888
-            )
+            val bitmap = Bitmap.createBitmap(drawingView.width, drawingView.height, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             canvas.drawColor(Color.WHITE)
             drawingView.draw(canvas)
             textOverlayView.draw(canvas)
             
-            val fileName = "whiteboard_${System.currentTimeMillis()}.png"
-            val file = File(filesDir, fileName)
+            val file = File(filesDir, "whiteboard_${System.currentTimeMillis()}.png")
             FileOutputStream(file).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             }
-            
-            Toast.makeText(this, "💾 Lavagna salvata: $fileName", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "💾 Salvata!", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
         }
