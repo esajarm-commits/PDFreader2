@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.INTERNET" />
-    
+
     <application
         android:allowBackup="true"
         android:icon="@drawable/ic_pdf"
@@ -14,7 +14,7 @@
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
-        
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -24,10 +24,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        
+
         <activity
             android:name=".PDFViewerActivity"
             android:parentActivityName=".MainActivity" />
-            
+
+        <activity
+            android:name=".WhiteboardActivity"
+            android:parentActivityName=".MainActivity" />
+
     </application>
 </manifest>

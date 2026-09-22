@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/textDialogTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Dimensione"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#3D2C1E"
+        android:layout_marginBottom="12dp" />
+
+    <SeekBar
+        android:id="@+id/seekBarEraserSize"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="200"
+        android:progress="40" />
+
+    <TextView
+        android:id="@+id/textEraserValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="60 px"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#FF9800"
+        android:layout_marginTop="8dp" />
+
+</LinearLayout>

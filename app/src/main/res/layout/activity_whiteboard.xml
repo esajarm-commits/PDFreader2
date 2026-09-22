@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFFFF">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="#7FB9E6"
+        app:title="Lavagna Infinita"
+        app:titleTextColor="#FFFFFF"
+        android:layout_alignParentTop="true" />
+
+    <FrameLayout
+        android:id="@+id/canvasContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/toolbar"
+        android:layout_above="@id/bottomBar">
+
+        <com.pdfreader.app.DrawingView
+            android:id="@+id/drawingView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <com.pdfreader.app.TextOverlayView
+            android:id="@+id/textOverlayView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/textZoomLevel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_below="@id/toolbar"
+        android:layout_margin="12dp"
+        android:background="#CC000000"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="6dp"
+        android:text="100%"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:elevation="4dp" />
+
+    <HorizontalScrollView
+        android:id="@+id/bottomBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="#F5F0EB">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="8dp">
+
+            <Button
+                android:id="@+id/btnPen"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✏️"
+                android:backgroundTint="#4CAF50"
+                android:textColor="#FFFFFF"
+                android:layout_margin="4dp" />
+
+            <Button
+                android:id="@+id/btnEraser"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🧽"
+                android:backgroundTint="#9E9E9E"
+                android:textColor="#FFFFFF"
+                android:layout_margin="4dp" />
+
+            <Button
+                android:id="@+id/btnMove"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="✋"
+                android:backgroundTint="#9E9E9E"
+                android:textColor="#FFFFFF"
+                android:layout_margin="4dp" />
+
+            <Button
+                android:id="@+id/btnText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🅰️"
+                android:backgroundTint="#2196F3"
+                android:textColor="#FFFFFF"
+                android:layout_margin="4dp" />
+
+            <Button
+                android:id="@+id/btnColor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎨"
+                android:backgroundTint="#D6BEEA"
+                android:textColor="#3D2C1E"
+                android:layout_margin="4dp" />
+
+            <Button
+                android:id="@+id/btnCenter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎯"
+                android:backgroundTint="#B7C96A"
+                android:textColor="#3D2C1E"
+                android:layout_margin="4dp" />
+
+            <Button
+                android:id="@+id/btnUndo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="↩️"
+                android:backgroundTint="#D6BEEA"
+                android:textColor="#3D2C1E"
+                android:layout_margin="4dp" />
+
+            <Button
+                android:id="@+id/btnClear"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🗑️"
+                android:backgroundTint="#D6BEEA"
+                android:textColor="#3D2C1E"
+                android:layout_margin="4dp" />
+
+            <Button
+                android:id="@+id/btnSave"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💾"
+                android:backgroundTint="#FF8F45"
+                android:textColor="#FFFFFF"
+                android:layout_margin="4dp" />
+
+        </LinearLayout>
+    </HorizontalScrollView>
+
+</RelativeLayout>

@@ -65,6 +65,10 @@ class MainActivity : AppCompatActivity() {
         
         recyclerView = findViewById(R.id.recyclerView)
         fabAdd = findViewById(R.id.fabAdd)
+val btnWhiteboard = findViewById<android.widget.Button>(R.id.btnWhiteboard)
+btnWhiteboard.setOnClickListener {
+    startActivity(Intent(this, WhiteboardActivity::class.java))
+}
         textEmpty = findViewById(R.id.textEmpty)
         
         setupRecyclerView()
