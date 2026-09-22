@@ -99,7 +99,7 @@ class PDFViewerActivity : AppCompatActivity() {
             "* { margin: 0; padding: 0; box-sizing: border-box; }" +
             "body { background: #f5f0eb; font-family: sans-serif; }" +
             "#container { display: flex; flex-direction: column; align-items: center; padding: 10px; min-height: 100vh; }" +
-            "canvas { max-width: 100% !important; height: auto !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); background: white; }" +
+            "canvas { max-width: 100% !important; height: auto !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); background: white; margin-bottom: 10px; }" +
             "#controls { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(44,62,80,0.92); padding: 12px 24px; border-radius: 50px; display: flex; gap: 20px; align-items: center; color: white; z-index: 1000; }" +
             "#controls button { background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 8px 16px; border-radius: 30px; min-width: 48px; min-height: 48px; }" +
             "#pageNum { font-size: 15px; min-width: 70px; text-align: center; }" +
@@ -181,22 +181,29 @@ class PDFViewerActivity : AppCompatActivity() {
             val originalFile = File(pdfPath)
             val outputFile = File(filesDir, "modified_${System.currentTimeMillis()}.pdf")
             
-            val success = PDFPageEditor.addPageToPDF(
-                originalPdf = originalFile,
-                outputFile = outputFile,
-                insertAfterPage = afterPage,
-                style = style,
-                pageWidth = 595,
-                pageHeight = 842
-            )
+            // Mostra un messaggio di attesa
+            Toast.makeText(this, "Aggiunta pagina in corso...", Toast.LENGTH_SHORT).show()
             
-            if (success) {
-                Toast.makeText(this, "Pagina aggiunta!", Toast.LENGTH_SHORT).show()
-                pdfPath = outputFile.absolutePath
-                loadPDF()
-            } else {
-                Toast.makeText(this, "Funzionalita in sviluppo", Toast.LENGTH_LONG).show()
-            }
+            // Esegui in un thread separato (PDFBox è lento)
+            Thread {
+                val success = PDFPageEditor.addPageToPDF(
+                    originalPdf = originalFile,
+                    outputFile = outputFile,
+                    insertAfterPage = afterPage,
+                    style = style
+                )
+                
+                runOnUiThread {
+                    if (success) {
+                        Toast.makeText(this, "Pagina aggiunta!", Toast.LENGTH_SHORT).show()
+                        pdfPath = outputFile.absolutePath
+                        loadPDF()
+                    } else {
+                        Toast.makeText(this, "Errore nell'aggiunta", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }.start()
+            
         } catch (e: Exception) {
             Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
         }

@@ -11,8 +11,8 @@ android {
         applicationId = "com.pdfreader.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "1.8"
+        versionCode = 10
+        versionName = "1.9"
     }
 
     buildFeatures {
@@ -36,5 +36,6 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.webkit:webkit:1.8.0")
     
-    // NON usiamo DroidPDF per ora
+    // PDFBox Android per unire pagine
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
 }
