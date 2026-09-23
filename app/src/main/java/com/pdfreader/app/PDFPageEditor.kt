@@ -3,7 +3,6 @@ package com.pdfreader.app
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.pdf.PdfDocument
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
@@ -24,18 +23,16 @@ object PDFPageEditor {
         val canvas = Canvas(bitmap)
         canvas.drawColor(Color.WHITE)
         
-        val linePaint = Paint().apply {
-            color = Color.parseColor("#CCCCCC")
-            strokeWidth = 1f
-            isAntiAlias = true
-            style = Paint.Style.STROKE
-        }
+        val linePaint = Paint()
+        linePaint.color = Color.parseColor("#CCCCCC")
+        linePaint.strokeWidth = 1f
+        linePaint.isAntiAlias = true
+        linePaint.setStyle(Paint.Style.STROKE)
         
-        val dotPaint = Paint().apply {
-            color = Color.parseColor("#999999")
-            style = Paint.Style.FILL
-            isAntiAlias = true
-        }
+        val dotPaint = Paint()
+        dotPaint.color = Color.parseColor("#999999")
+        dotPaint.isAntiAlias = true
+        dotPaint.setStyle(Paint.Style.FILL)
         
         when (style) {
             "lined" -> {
@@ -88,8 +85,8 @@ object PDFPageEditor {
             val document = PDDocument.load(originalPdf)
             
             // 2. Crea la bitmap con lo stile
-            val pageWidth = 595  // A4 width in points
-            val pageHeight = 842  // A4 height in points
+            val pageWidth = 595
+            val pageHeight = 842
             val bitmap = createStyledBitmap(pageWidth, pageHeight, style)
             
             // 3. Salva la bitmap in un file temporaneo
