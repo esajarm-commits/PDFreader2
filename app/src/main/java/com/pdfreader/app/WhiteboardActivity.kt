@@ -12,6 +12,11 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import com.pdfreader.app.data.AppDatabase
+import com.pdfreader.app.data.NotePage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 
@@ -35,6 +40,14 @@ class WhiteboardActivity : AppCompatActivity() {
     private var strokeWidth = 5f
     private var eraserSize = 60f
     private var textSize = 40f
+    
+    // Info per il salvataggio
+    private var pdfPath: String = ""
+    private var pdfName: String = ""
+    private var style: String = "blank"
+    private var insertAfterPage: Int = 1
+    private var existingPageId: Long = -1
+    private var existingImagePath: String = ""
     
     private val colorPalette = intArrayOf(
         Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW,
@@ -61,12 +74,30 @@ class WhiteboardActivity : AppCompatActivity() {
         btnClear = findViewById(R.id.btnClear)
         btnSave = findViewById(R.id.btnSave)
         
+        // Recupera info dall'intent
+        pdfPath = intent.getStringExtra("PDF_PATH") ?: ""
+        pdfName = intent.getStringExtra("PDF_NAME") ?: "PDF"
+        style = intent.getStringExtra("STYLE") ?: "blank"
+        insertAfterPage = intent.getIntExtra("INSERT_AFTER", 1)
+        existingPageId = intent.getLongExtra("PAGE_ID", -1)
+        existingImagePath = intent.getStringExtra("IMAGE_PATH") ?: ""
+        
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         toolbar.setNavigationOnClickListener { finish() }
         
+        // Se stiamo modificando una pagina esistente, carica l'immagine
+        if (existingImagePath.isNotEmpty()) {
+            loadExistingImage(existingImagePath)
+        }
+        
         setupButtons()
         updateZoomLabel()
+    }
+    
+    private fun loadExistingImage(path: String) {
+        // TODO: caricare l'immagine esistente nel DrawingView
+        // Per ora, l'immagine viene solo mostrata come sfondo
     }
     
     private fun setupButtons() {
@@ -82,22 +113,15 @@ class WhiteboardActivity : AppCompatActivity() {
             btnMove.setBackgroundColor(Color.parseColor("#FF5722"))
             btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
             btnEraser.setBackgroundColor(Color.parseColor("#9E9E9E"))
-            Toast.makeText(this, "✋ Muovi", Toast.LENGTH_SHORT).show()
         }
         
         btnText.setOnClickListener { showAddTextDialog() }
         btnColor.setOnClickListener { showColorPicker() }
-        
         btnCenter.setOnClickListener {
             drawingView.centerView()
             updateZoomLabel()
         }
-        
-        btnUndo.setOnClickListener {
-            drawingView.undo()
-            Toast.makeText(this, "↩️ Annullato", Toast.LENGTH_SHORT).show()
-        }
-        
+        btnUndo.setOnClickListener { drawingView.undo() }
         btnClear.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("Cancellare tutto?")
@@ -109,14 +133,7 @@ class WhiteboardActivity : AppCompatActivity() {
                 .show()
         }
         
-        btnSave.setOnClickListener { saveWhiteboard() }
-        
-        drawingView.post(object : Runnable {
-            override fun run() {
-                updateZoomLabel()
-                drawingView.postDelayed(this, 150)
-            }
-        })
+        btnSave.setOnClickListener { saveAndExit() }
     }
     
     private fun activatePen() {
@@ -232,21 +249,132 @@ class WhiteboardActivity : AppCompatActivity() {
             .show()
     }
     
-    private fun saveWhiteboard() {
+    // Chiedi il nome della pagina e salva
+    private fun saveAndExit() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_add_text, null)
+        val editText = dialogView.findViewById<EditText>(R.id.editTextInput)
+        editText.hint = "Nome della pagina (es. Appunti 1)"
+        
+        AlertDialog.Builder(this)
+            .setTitle("Salva Pagina")
+            .setView(dialogView)
+            .setPositiveButton("Salva") { _, _ ->
+                val pageName = editText.text.toString()
+                if (pageName.isEmpty()) {
+                    Toast.makeText(this, "Inserisci un nome", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                savePageToDatabase(pageName)
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
+    }
+    
+    private fun savePageToDatabase(pageName: String) {
         try {
-            val bitmap = Bitmap.createBitmap(drawingView.width, drawingView.height, Bitmap.Config.ARGB_8888)
+            // 1. Crea la bitmap
+            val bitmap = Bitmap.createBitmap(
+                drawingView.width.coerceAtLeast(595),
+                drawingView.height.coerceAtLeast(842),
+                Bitmap.Config.ARGB_8888
+            )
             val canvas = Canvas(bitmap)
             canvas.drawColor(Color.WHITE)
+            
+            // Disegna lo sfondo in base allo stile
+            drawStyledBackground(canvas, bitmap.width, bitmap.height, style)
+            
+            // Disegna i contenuti della lavagna
             drawingView.draw(canvas)
             textOverlayView.draw(canvas)
             
-            val file = File(filesDir, "whiteboard_${System.currentTimeMillis()}.png")
-            FileOutputStream(file).use { out ->
+            // 2. Salva l'immagine nella memoria interna
+            val imagesDir = File(filesDir, "note_pages")
+            if (!imagesDir.exists()) imagesDir.mkdirs()
+            
+            val imageFile = File(imagesDir, "page_${System.currentTimeMillis()}.png")
+            FileOutputStream(imageFile).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             }
-            Toast.makeText(this, "💾 Salvata!", Toast.LENGTH_LONG).show()
+            
+            // 3. Salva nel database
+            val db = AppDatabase.getInstance(this)
+            val page = NotePage(
+                id = if (existingPageId > 0) existingPageId else 0,
+                pdfPath = pdfPath,
+                pdfName = pdfName,
+                pageName = pageName,
+                style = style,
+                insertAfterPage = insertAfterPage,
+                imagePath = imageFile.absolutePath
+            )
+            
+            CoroutineScope(Dispatchers.IO).launch {
+                if (existingPageId > 0) {
+                    db.notePageDao().update(page)
+                } else {
+                    db.notePageDao().insert(page)
+                }
+                
+                runOnUiThread {
+                    Toast.makeText(this@WhiteboardActivity, "Pagina salvata: $pageName", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+            }
+            
         } catch (e: Exception) {
             Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private fun drawStyledBackground(canvas: Canvas, width: Int, height: Int, style: String) {
+        val linePaint = android.graphics.Paint().apply {
+            color = Color.parseColor("#CCCCCC")
+            strokeWidth = 1f
+            isAntiAlias = true
+            this.style = android.graphics.Paint.Style.STROKE
+        }
+        
+        val dotPaint = android.graphics.Paint().apply {
+            color = Color.parseColor("#999999")
+            this.style = android.graphics.Paint.Style.FILL
+            isAntiAlias = true
+        }
+        
+        when (style) {
+            "lined" -> {
+                val spacing = 40f
+                var y = 60f
+                while (y < height - 60) {
+                    canvas.drawLine(40f, y, width - 40f, y, linePaint)
+                    y += spacing
+                }
+            }
+            "grid" -> {
+                val spacing = 40f
+                var x = 40f
+                while (x < width - 40) {
+                    canvas.drawLine(x, 40f, x, height - 40f, linePaint)
+                    x += spacing
+                }
+                var y = 40f
+                while (y < height - 40) {
+                    canvas.drawLine(40f, y, width - 40f, y, linePaint)
+                    y += spacing
+                }
+            }
+            "dotted" -> {
+                val spacing = 40f
+                var y = 60f
+                while (y < height - 60) {
+                    var x = 60f
+                    while (x < width - 60) {
+                        canvas.drawCircle(x, y, 3f, dotPaint)
+                        x += spacing
+                    }
+                    y += spacing
+                }
+            }
         }
     }
 }
