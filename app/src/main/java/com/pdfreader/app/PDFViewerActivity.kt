@@ -295,10 +295,13 @@ class PDFViewerActivity : AppCompatActivity() {
             "</script></body></html>"
     }
     
-    override fun onResume() {
+        override fun onResume() {
         super.onResume()
+        // Ricarica il PDF quando si torna dalla lavagna
         if (pdfPath.isNotEmpty()) {
             loadPDFWithNotes()
+        }
+    
         }
     }
 }

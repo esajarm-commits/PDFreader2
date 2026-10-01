@@ -43,6 +43,7 @@ class WhiteboardActivity : AppCompatActivity() {
     
     // Info per il salvataggio
     private var pdfPath: String = ""
+private var isNewPdf: Boolean = false
     private var pdfName: String = ""
     private var style: String = "blank"
     private var insertAfterPage: Int = 1
@@ -76,6 +77,7 @@ class WhiteboardActivity : AppCompatActivity() {
         
         // Recupera info dall'intent
         pdfPath = intent.getStringExtra("PDF_PATH") ?: ""
+isNewPdf = intent.getBooleanExtra("IS_NEW_PDF", false)
         pdfName = intent.getStringExtra("PDF_NAME") ?: "PDF"
         style = intent.getStringExtra("STYLE") ?: "blank"
         insertAfterPage = intent.getIntExtra("INSERT_AFTER", 1)
@@ -264,7 +266,83 @@ class WhiteboardActivity : AppCompatActivity() {
                     Toast.makeText(this, "Inserisci un nome", Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
-                savePageToDatabase(pageName)
+                    private fun savePageToDatabase(pageName: String) {
+        try {
+            // Crea la bitmap con il template di sfondo
+            val bitmap = Bitmap.createBitmap(
+                drawingView.width.coerceAtLeast(595),
+                drawingView.height.coerceAtLeast(842),
+                Bitmap.Config.ARGB_8888
+            )
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(Color.WHITE)
+            
+            // Disegna lo sfondo del template
+            drawingView.drawBackground(canvas)
+            
+            // Disegna i contenuti
+            drawingView.draw(canvas)
+            textOverlayView.draw(canvas)
+            
+            val imagesDir = File(filesDir, "note_pages")
+            if (!imagesDir.exists()) imagesDir.mkdirs()
+            
+            val imageFile = File(imagesDir, "page_${System.currentTimeMillis()}.png")
+            FileOutputStream(imageFile).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            
+            // Se è un NUOVO PDF, salva la pagina come PDF
+            if (isNewPdf) {
+                val pdfFile = File(filesDir, "${pdfName.replace(" ", "_")}.pdf")
+                val pdfDocument = android.graphics.pdf.PdfDocument()
+                val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(
+                    bitmap.width, bitmap.height, 1
+                ).create()
+                val page = pdfDocument.startPage(pageInfo)
+                page.canvas.drawBitmap(bitmap, 0f, 0f, null)
+                pdfDocument.finishPage(page)
+                FileOutputStream(pdfFile).use { out ->
+                    pdfDocument.writeTo(out)
+                }
+                pdfDocument.close()
+                
+                runOnUiThread {
+                    Toast.makeText(this@WhiteboardActivity, "PDF creato: ${pdfFile.name}", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+                return
+            }
+            
+            // Altrimenti salva nel database come nota
+            val db = AppDatabase.getInstance(this)
+            val page = NotePage(
+                id = if (existingPageId > 0) existingPageId else 0,
+                pdfPath = pdfPath,
+                pdfName = pdfName,
+                pageName = pageName,
+                style = templateFileName,
+                insertAfterPage = insertAfterPage,
+                imagePath = imageFile.absolutePath
+            )
+            
+            CoroutineScope(Dispatchers.IO).launch {
+                if (existingPageId > 0) {
+                    db.notePageDao().update(page)
+                } else {
+                    db.notePageDao().insert(page)
+                }
+                
+                runOnUiThread {
+                    Toast.makeText(this@WhiteboardActivity, "Pagina salvata: $pageName", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+            }
+            
+        } catch (e: Exception) {
+            Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
             }
             .setNegativeButton("Annulla", null)
             .show()

@@ -1,3 +1,4 @@
+import androidx.appcompat.app.AlertDialog
 package com.pdfreader.app
 
 import android.Manifest
@@ -72,74 +73,82 @@ btnWhiteboard.setOnClickListener {
         textEmpty = findViewById(R.id.textEmpty)
         
         setupRecyclerView()
-        setupFab()
-        checkPermissions()
-        loadExistingPDFs()
-    }
-    
-    private fun setupRecyclerView() {
-        adapter = PDFAdapter { pdf ->
-            val intent = Intent(this, PDFViewerActivity::class.java)
-            intent.putExtra("PDF_PATH", pdf.path)
-            intent.putExtra("PDF_NAME", pdf.name)
-            startActivity(intent)
-        }
-        recyclerView.layoutManager = LinearLayoutManager(this)
-        recyclerView.adapter = adapter
-    }
-    
-    private fun setupFab() {
+            private fun setupFab() {
         fabAdd.setOnClickListener {
-            pickPDF.launch(arrayOf("application/pdf"))
+            showAddDialog()
         }
     }
     
-    private fun checkPermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.READ_MEDIA_IMAGES
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                requestPermissions(
-                    arrayOf(
-                        Manifest.permission.READ_MEDIA_IMAGES,
-                        Manifest.permission.READ_MEDIA_VIDEO,
-                        Manifest.permission.READ_MEDIA_AUDIO
-                    ),
-                    1001
-                )
+    private fun showAddDialog() {
+        val options = arrayOf(
+            "📄 Aggiungi PDF esistente",
+            "🎨 Crea nuovo con template"
+        )
+        
+        AlertDialog.Builder(this)
+            .setTitle("Cosa vuoi fare?")
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> pickPDF.launch(arrayOf("application/pdf"))
+                    1 -> showTemplatePickerForNewPdf()
+                }
             }
-        }
+            .show()
     }
     
-    private fun loadExistingPDFs() {
-        val filesDir = filesDir
-        val files = filesDir.listFiles { file -> file.extension == "pdf" }
-        files?.forEach { file ->
-            val pdfFile = PDFFile(
-                name = file.name,
-                path = file.absolutePath
-            )
-            pdfFiles.add(pdfFile)
+    private fun showTemplatePickerForNewPdf() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_template_picker, null)
+        val recyclerTemplates = dialogView.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recyclerTemplates)
+        
+        val templates = TemplateManager.loadAllTemplates(this)
+        
+        if (templates.isEmpty()) {
+            Toast.makeText(this, "Nessun template trovato", Toast.LENGTH_LONG).show()
+            return
         }
-        adapter.submitList(pdfFiles)
-        updateEmptyView()
+        
+        recyclerTemplates.layoutManager = androidx.recyclerview.widget.GridLayoutManager(this, 3)
+        
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setNegativeButton("Annulla", null)
+            .create()
+        
+        val adapter = TemplateAdapter(templates) { template ->
+            dialog.dismiss()
+            createNewPdfFromTemplate(template)
+        }
+        recyclerTemplates.adapter = adapter
+        
+        dialog.show()
     }
     
-    private fun updateEmptyView() {
-        if (pdfFiles.isEmpty()) {
-            textEmpty.visibility = android.view.View.VISIBLE
-            recyclerView.visibility = android.view.View.GONE
-        } else {
-            textEmpty.visibility = android.view.View.GONE
-            recyclerView.visibility = android.view.View.VISIBLE
-        }
+    private fun createNewPdfFromTemplate(template: TemplateManager.Template) {
+        // Chiedi il nome del nuovo PDF
+        val dialogView = layoutInflater.inflate(R.layout.dialog_add_text, null)
+        val editText = dialogView.findViewById<android.widget.EditText>(R.id.editTextInput)
+        editText.hint = "Nome del nuovo PDF"
+        
+        AlertDialog.Builder(this)
+            .setTitle("Crea nuovo PDF")
+            .setView(dialogView)
+            .setPositiveButton("Crea") { _, _ ->
+                val pdfName = editText.text.toString()
+                if (pdfName.isEmpty()) {
+                    Toast.makeText(this, "Inserisci un nome", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                
+                // Apri la lavagna con il template scelto
+                val intent = Intent(this, WhiteboardActivity::class.java)
+                intent.putExtra("PDF_PATH", "")  // Nessun PDF di partenza
+                intent.putExtra("PDF_NAME", pdfName)
+                intent.putExtra("TEMPLATE_FILE", template.fileName)
+                intent.putExtra("INSERT_AFTER", 1)
+                intent.putExtra("IS_NEW_PDF", true)
+                startActivity(intent)
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
     }
-}
 
-data class PDFFile(
-    val name: String,
-    val path: String,
-    val lastOpened: Long = System.currentTimeMillis()
-)
