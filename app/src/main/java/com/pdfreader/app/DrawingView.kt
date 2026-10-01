@@ -29,8 +29,9 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         style = Paint.Style.STROKE
         strokeJoin = Paint.Join.ROUND
         strokeCap = Paint.Cap.ROUND
-        color = Color.WHITE
+        color = Color.TRANSPARENT
         strokeWidth = 40f
+        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
     }
     
     private var currentPath = Path()
@@ -72,7 +73,7 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         override fun onScaleEnd(detector: ScaleGestureDetector) { isScaling = false }
     })
     
-    init { setLayerType(View.LAYER_TYPE_SOFTWARE, null) }
+        init { setLayerType(View.LAYER_TYPE_HARDWARE, null) }
     
     fun setBackgroundBitmap(bitmap: Bitmap) {
         backgroundBitmap = bitmap
@@ -136,7 +137,15 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 }
                 return true
             }
-            MotionEvent.ACTION_POINTER_UP -> {
+         private var eraserPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeJoin = Paint.Join.ROUND
+        strokeCap = Paint.Cap.ROUND
+        color = Color.TRANSPARENT
+        strokeWidth = 40f
+        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
+    }       MotionEvent.ACTION_POINTER_UP -> {
                 val remainingIndex = if (event.actionIndex == 0) 1 else 0
                 if (remainingIndex < event.pointerCount) {
                     lastX = event.getX(remainingIndex)
@@ -203,5 +212,57 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     }
     fun clearAll() { paths.clear(); currentPath = Path(); invalidate() }
     fun centerView() { matrix.reset(); scaleFactor = 1f; invalidate() }
-    fun getScaleFactor(): Float = scaleFactor
+        fun getScaleFactor(): Float = scaleFactor
+    
+    fun exportPathsToJson(): String {
+        val sb = StringBuilder("[")
+        paths.forEachIndexed { index, (path, paint) ->
+            if (index > 0) sb.append(",")
+            sb.append("{")
+            sb.append("\"color\":${paint.color},")
+            sb.append("\"width\":${paint.strokeWidth},")
+            sb.append("\"points\":[")
+            val pathMeasure = android.graphics.PathMeasure(path, false)
+            val length = pathMeasure.length
+            val numPoints = (length / 5).toInt().coerceAtLeast(2)
+            for (i in 0..numPoints) {
+                val distance = (length * i / numPoints)
+                val pos = FloatArray(2)
+                val tan = FloatArray(2)
+                pathMeasure.getPosTan(distance, pos, tan)
+                if (i > 0) sb.append(",")
+                sb.append("[${pos[0]},${pos[1]}]")
+            }
+            sb.append("]}")
+        }
+        sb.append("]")
+        return sb.toString()
+    }
+    
+    fun importPathsFromJson(json: String) {
+        try {
+            val array = org.json.JSONArray(json)
+            for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val color = obj.getInt("color")
+                val width = obj.getDouble("width").toFloat()
+                val points = obj.getJSONArray("points")
+                val path = Path()
+                for (j in 0 until points.length()) {
+                    val point = points.getJSONArray(j)
+                    val x = point.getDouble(0).toFloat()
+                    val y = point.getDouble(1).toFloat()
+                    if (j == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                }
+                val paint = Paint(drawPaint).apply {
+                    this.color = color
+                    strokeWidth = width
+                }
+                paths.add(path to paint)
+            }
+            invalidate()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }
