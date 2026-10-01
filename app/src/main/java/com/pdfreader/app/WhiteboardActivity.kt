@@ -286,20 +286,29 @@ class WhiteboardActivity : AppCompatActivity() {
     
     private fun savePageToDatabase(pageName: String) {
         try {
-            val bitmap = Bitmap.createBitmap(
-                drawingView.width.coerceAtLeast(595),
-                drawingView.height.coerceAtLeast(842),
-                Bitmap.Config.ARGB_8888
-            )
+            // ALTA RISOLUZIONE: A4 a 300 DPI = 2480 x 3508 pixel
+            val pageWidth = 2480
+            val pageHeight = 3508
+            
+            val bitmap = Bitmap.createBitmap(pageWidth, pageHeight, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             canvas.drawColor(Color.WHITE)
             
+            val scaleX = pageWidth.toFloat() / drawingView.width
+            val scaleY = pageHeight.toFloat() / drawingView.height
+            canvas.scale(scaleX, scaleY)
+            
+            drawingView.drawBackground(canvas)
+            drawingView.draw(canvas)
+            textOverlayView.draw(canvas)
+            
+            canvas.scale(1f / scaleX, 1f / scaleY)
+            
             if (isNewPdf) {
-                // Salva come NUOVO PDF
                 val pdfFile = File(filesDir, "${pdfName.replace(" ", "_")}.pdf")
                 val pdfDocument = android.graphics.pdf.PdfDocument()
                 val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(
-                    bitmap.width, bitmap.height, 1
+                    pageWidth, pageHeight, 1
                 ).create()
                 val page = pdfDocument.startPage(pageInfo)
                 page.canvas.drawBitmap(bitmap, 0f, 0f, null)
@@ -310,6 +319,42 @@ class WhiteboardActivity : AppCompatActivity() {
                     Toast.makeText(this@WhiteboardActivity, "PDF creato: ${pdfFile.name}", Toast.LENGTH_LONG).show()
                     finish()
                 }
+                return
+            }
+            
+            val imagesDir = File(filesDir, "note_pages")
+            if (!imagesDir.exists()) imagesDir.mkdirs()
+            val imageFile = File(imagesDir, "page_${System.currentTimeMillis()}.png")
+            FileOutputStream(imageFile).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+            
+            val db = AppDatabase.getInstance(this)
+            val page = NotePage(
+                id = if (existingPageId > 0) existingPageId else 0,
+                pdfPath = pdfPath,
+                pdfName = pdfName,
+                pageName = pageName,
+                style = templateFileName,
+                insertAfterPage = insertAfterPage,
+                imagePath = imageFile.absolutePath
+            )
+            
+            CoroutineScope(Dispatchers.IO).launch {
+                if (existingPageId > 0) {
+                    db.notePageDao().update(page)
+                } else {
+                    db.notePageDao().insert(page)
+                }
+                runOnUiThread {
+                    Toast.makeText(this@WhiteboardActivity, "Pagina salvata: $pageName", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
                 return
             }
             
