@@ -1,30 +1,28 @@
 package com.pdfreader.app
 
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Base64
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
-import android.widget.RadioGroup
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.pdfreader.app.data.AppDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileInputStream
-import java.io.ByteArrayOutputStream
 
 class PDFViewerActivity : AppCompatActivity() {
     
     private lateinit var toolbar: Toolbar
-    private lateinit var webView: WebView
+    private lateinit var webView: android.webkit.WebView
     private lateinit var btnAddPage: Button
     private var pdfPath: String = ""
     private var pdfName: String = ""
@@ -53,18 +51,68 @@ class PDFViewerActivity : AppCompatActivity() {
         }
         
         btnAddPage.setOnClickListener {
-            showAddPageDialog()
+            showTemplatePicker()
         }
+    }
+    
+    // Mostra la griglia con tutti i template
+    private fun showTemplatePicker() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_template_picker, null)
+        val recyclerTemplates = dialogView.findViewById<RecyclerView>(R.id.recyclerTemplates)
+        
+        // Carica tutti i template dalla cartella assets/templates
+        val templates = TemplateManager.loadAllTemplates(this)
+        
+        if (templates.isEmpty()) {
+            Toast.makeText(this, "Nessun template trovato. Aggiungi PNG in assets/templates/", Toast.LENGTH_LONG).show()
+            return
+        }
+        
+        // Configura la griglia (3 colonne)
+        recyclerTemplates.layoutManager = GridLayoutManager(this, 3)
+        
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .setNegativeButton("Annulla", null)
+            .create()
+        
+        val adapter = TemplateAdapter(templates) { template ->
+            dialog.dismiss()
+            showInsertPositionDialog(template)
+        }
+        recyclerTemplates.adapter = adapter
+        
+        dialog.show()
+    }
+    
+    // Chiedi dopo quale pagina inserire il template
+    private fun showInsertPositionDialog(template: TemplateManager.Template) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_add_page, null)
+        val editPageNumber = dialogView.findViewById<EditText>(R.id.editPageNumber)
+        
+        AlertDialog.Builder(this)
+            .setTitle("Inserisci '${template.displayName}'")
+            .setMessage("Dopo quale pagina del PDF vuoi inserire questo foglio?")
+            .setView(dialogView)
+            .setPositiveButton("Crea") { _, _ ->
+                val pageNumber = editPageNumber.text.toString().toIntOrNull() ?: 1
+                
+                // Apri la lavagna con il template scelto
+                val intent = Intent(this, WhiteboardActivity::class.java)
+                intent.putExtra("PDF_PATH", pdfPath)
+                intent.putExtra("PDF_NAME", pdfName)
+                intent.putExtra("TEMPLATE_FILE", template.fileName)
+                intent.putExtra("INSERT_AFTER", pageNumber)
+                startActivity(intent)
+            }
+            .setNegativeButton("Annulla", null)
+            .show()
     }
     
     private fun loadPDFWithNotes() {
         CoroutineScope(Dispatchers.IO).launch {
             val db = AppDatabase.getInstance(this@PDFViewerActivity)
-            val notePages = db.notePageDao().getPagesForPdf(pdfPath)
-            
-            // Raccogli le pagine in una lista
-            val pagesList = mutableListOf<Any>()
-            notePages.collect { pages ->
+            db.notePageDao().getPagesForPdf(pdfPath).collect { pages ->
                 runOnUiThread {
                     loadPDFWithNotesList(pages)
                 }
@@ -86,7 +134,6 @@ class PDFViewerActivity : AppCompatActivity() {
             inputStream.close()
             val pdfBase64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
             
-            // Prepara le immagini delle note
             val notesJson = buildNotesJson(notePages)
             
             webView.settings.javaScriptEnabled = true
@@ -97,8 +144,8 @@ class PDFViewerActivity : AppCompatActivity() {
             webView.settings.allowFileAccess = true
             webView.settings.domStorageEnabled = true
             
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
+            webView.webViewClient = object : android.webkit.WebViewClient() {
+                override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     Toast.makeText(this@PDFViewerActivity, "PDF caricato!", Toast.LENGTH_SHORT).show()
                 }
@@ -117,7 +164,6 @@ class PDFViewerActivity : AppCompatActivity() {
         notePages.forEachIndexed { index, page ->
             if (index > 0) sb.append(",")
             
-            // Leggi l'immagine e convertila in base64
             val imageFile = File(page.imagePath)
             val imageBase64 = if (imageFile.exists()) {
                 val bytes = imageFile.readBytes()
@@ -180,7 +226,6 @@ class PDFViewerActivity : AppCompatActivity() {
             "      if (!notesByAfter[n.after]) notesByAfter[n.after] = [];" +
             "      notesByAfter[n.after].push(n);" +
             "    });" +
-            "    " +
             "    function renderPage(pdfPageNum, callback) {" +
             "      pdfDoc.getPage(pdfPageNum).then(function(page) {" +
             "        var viewport = page.getViewport({scale: scale});" +
@@ -201,7 +246,6 @@ class PDFViewerActivity : AppCompatActivity() {
             "        });" +
             "      });" +
             "    }" +
-            "    " +
             "    function addNotePage(note, callback) {" +
             "      var wrapper = document.createElement('div');" +
             "      wrapper.className = 'page-wrapper';" +
@@ -214,16 +258,10 @@ class PDFViewerActivity : AppCompatActivity() {
             "        img.className = 'note-image';" +
             "        img.src = 'data:image/png;base64,' + note.image;" +
             "        wrapper.appendChild(img);" +
-            "      } else {" +
-            "        var empty = document.createElement('div');" +
-            "        empty.style.cssText = 'height:400px;background:white;display:flex;align-items:center;justify-content:center;color:#999;';" +
-            "        empty.textContent = 'Pagina vuota';" +
-            "        wrapper.appendChild(empty);" +
             "      }" +
             "      container.appendChild(wrapper);" +
             "      callback();" +
             "    }" +
-            "    " +
             "    function processAll(pageNum) {" +
             "      if (pageNum > totalPdfPages) {" +
             "        if (notesByAfter[totalPdfPages + 1]) {" +
@@ -248,50 +286,17 @@ class PDFViewerActivity : AppCompatActivity() {
             "        nextNote();" +
             "      });" +
             "    }" +
-            "    " +
             "    processAll(1);" +
             "  }).catch(function(e) {" +
             "    container.innerHTML = '<div style=\"padding:40px;color:#c00;\">Errore: ' + e.message + '</div>';" +
             "  });" +
             "}" +
-            "" +
             "renderAllPages();" +
             "</script></body></html>"
     }
     
-    private fun showAddPageDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_add_page, null)
-        val radioGroup = dialogView.findViewById<RadioGroup>(R.id.radioGroupPageType)
-        val editPageNumber = dialogView.findViewById<EditText>(R.id.editPageNumber)
-        
-        AlertDialog.Builder(this)
-            .setTitle("Aggiungi Pagina")
-            .setView(dialogView)
-            .setPositiveButton("Crea") { _, _ ->
-                val pageNumber = editPageNumber.text.toString().toIntOrNull() ?: 1
-                
-                val style = when (radioGroup.checkedRadioButtonId) {
-                    R.id.radioLined -> "lined"
-                    R.id.radioGrid -> "grid"
-                    R.id.radioDotted -> "dotted"
-                    else -> "blank"
-                }
-                
-                // Apri la lavagna con le info della pagina
-                val intent = Intent(this, WhiteboardActivity::class.java)
-                intent.putExtra("PDF_PATH", pdfPath)
-                intent.putExtra("PDF_NAME", pdfName)
-                intent.putExtra("STYLE", style)
-                intent.putExtra("INSERT_AFTER", pageNumber)
-                startActivity(intent)
-            }
-            .setNegativeButton("Annulla", null)
-            .show()
-    }
-    
     override fun onResume() {
         super.onResume()
-        // Ricarica il PDF quando si torna dalla lavagna
         if (pdfPath.isNotEmpty()) {
             loadPDFWithNotes()
         }
