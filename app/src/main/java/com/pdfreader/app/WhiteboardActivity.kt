@@ -119,10 +119,8 @@ class WhiteboardActivity : AppCompatActivity() {
     private fun setupButtons() {
         btnPen.setOnClickListener { activatePen() }
         btnPen.setOnLongClickListener { showPenSizeDialog(); true }
-        
         btnEraser.setOnClickListener { activateEraser() }
         btnEraser.setOnLongClickListener { showEraserSizeDialog(); true }
-        
         btnMove.setOnClickListener {
             drawingView.enableDrawing(false)
             drawingView.setEraserMode(false)
@@ -130,7 +128,6 @@ class WhiteboardActivity : AppCompatActivity() {
             btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
             btnEraser.setBackgroundColor(Color.parseColor("#9E9E9E"))
         }
-        
         btnText.setOnClickListener { showAddTextDialog() }
         btnColor.setOnClickListener { showColorPicker() }
         btnCenter.setOnClickListener {
@@ -141,7 +138,7 @@ class WhiteboardActivity : AppCompatActivity() {
         btnClear.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("Cancellare tutto?")
-                .setPositiveButton("Sì") { _, _ ->
+                .setPositiveButton("Si") { _, _ ->
                     drawingView.clearAll()
                     textOverlayView.clearAll()
                 }
@@ -174,12 +171,10 @@ class WhiteboardActivity : AppCompatActivity() {
         val seekBar = dialogView.findViewById<SeekBar>(R.id.seekBarEraserSize)
         val textValue = dialogView.findViewById<TextView>(R.id.textEraserValue)
         val titleText = dialogView.findViewById<TextView>(R.id.textDialogTitle)
-        
         titleText.text = "Dimensione Penna"
         seekBar.max = 50
         seekBar.progress = Math.max(0, Math.min(50, strokeWidth.toInt() - 1))
         textValue.text = "${strokeWidth.toInt()} px"
-        
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 textValue.text = "${progress + 1} px"
@@ -187,7 +182,6 @@ class WhiteboardActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
-        
         AlertDialog.Builder(this)
             .setView(dialogView)
             .setPositiveButton("Applica") { _, _ ->
@@ -204,12 +198,10 @@ class WhiteboardActivity : AppCompatActivity() {
         val seekBar = dialogView.findViewById<SeekBar>(R.id.seekBarEraserSize)
         val textValue = dialogView.findViewById<TextView>(R.id.textEraserValue)
         val titleText = dialogView.findViewById<TextView>(R.id.textDialogTitle)
-        
         titleText.text = "Dimensione Gomma"
         seekBar.max = 200
         seekBar.progress = Math.max(0, Math.min(200, eraserSize.toInt() - 20))
         textValue.text = "${eraserSize.toInt()} px"
-        
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 textValue.text = "${progress + 20} px"
@@ -217,7 +209,6 @@ class WhiteboardActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
-        
         AlertDialog.Builder(this)
             .setView(dialogView)
             .setPositiveButton("Applica") { _, _ ->
@@ -237,7 +228,6 @@ class WhiteboardActivity : AppCompatActivity() {
     private fun showAddTextDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_text, null)
         val editText = dialogView.findViewById<EditText>(R.id.editTextInput)
-        
         AlertDialog.Builder(this)
             .setTitle("Aggiungi Testo")
             .setView(dialogView)
@@ -254,7 +244,6 @@ class WhiteboardActivity : AppCompatActivity() {
     private fun showColorPicker() {
         val colorNames = arrayOf("Nero", "Rosso", "Blu", "Verde", "Giallo",
             "Arancione", "Viola", "Ciano", "Verde Chiaro", "Grigio", "Marrone")
-        
         AlertDialog.Builder(this)
             .setTitle("Scegli colore")
             .setItems(colorNames) { _, which ->
@@ -268,7 +257,6 @@ class WhiteboardActivity : AppCompatActivity() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_text, null)
         val editText = dialogView.findViewById<EditText>(R.id.editTextInput)
         editText.hint = "Nome della pagina"
-        
         AlertDialog.Builder(this)
             .setTitle("Salva Pagina")
             .setView(dialogView)
@@ -322,43 +310,6 @@ class WhiteboardActivity : AppCompatActivity() {
                 return
             }
             
-            val imagesDir = File(filesDir, "note_pages")
-            if (!imagesDir.exists()) imagesDir.mkdirs()
-            val imageFile = File(imagesDir, "page_${System.currentTimeMillis()}.png")
-            FileOutputStream(imageFile).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-            
-            val db = AppDatabase.getInstance(this)
-            val page = NotePage(
-                id = if (existingPageId > 0) existingPageId else 0,
-                pdfPath = pdfPath,
-                pdfName = pdfName,
-                pageName = pageName,
-                style = templateFileName,
-                insertAfterPage = insertAfterPage,
-                imagePath = imageFile.absolutePath
-            )
-            
-            CoroutineScope(Dispatchers.IO).launch {
-                if (existingPageId > 0) {
-                    db.notePageDao().update(page)
-                } else {
-                    db.notePageDao().insert(page)
-                }
-                runOnUiThread {
-                    Toast.makeText(this@WhiteboardActivity, "Pagina salvata: $pageName", Toast.LENGTH_LONG).show()
-                    finish()
-                }
-            }
-        } catch (e: Exception) {
-            Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
-        }
-    }
-                return
-            }
-            
-            // Salva come nota nel database
             val imagesDir = File(filesDir, "note_pages")
             if (!imagesDir.exists()) imagesDir.mkdirs()
             val imageFile = File(imagesDir, "page_${System.currentTimeMillis()}.png")
