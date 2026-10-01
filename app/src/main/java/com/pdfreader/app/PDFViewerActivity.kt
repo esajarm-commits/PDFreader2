@@ -3,7 +3,8 @@ package com.pdfreader.app
 import android.content.Intent
 import android.os.Bundle
 import android.util.Base64
-import android.view.View
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -22,7 +23,7 @@ import java.io.FileInputStream
 class PDFViewerActivity : AppCompatActivity() {
     
     private lateinit var toolbar: Toolbar
-    private lateinit var webView: android.webkit.WebView
+    private lateinit var webView: WebView
     private lateinit var btnAddPage: Button
     private var pdfPath: String = ""
     private var pdfName: String = ""
@@ -40,7 +41,6 @@ class PDFViewerActivity : AppCompatActivity() {
         
         pdfPath = intent.getStringExtra("PDF_PATH") ?: ""
         pdfName = intent.getStringExtra("PDF_NAME") ?: "PDF"
-        
         toolbar.title = pdfName
         
         if (pdfPath.isNotEmpty()) {
@@ -50,42 +50,27 @@ class PDFViewerActivity : AppCompatActivity() {
             finish()
         }
         
-        btnAddPage.setOnClickListener {
-            showTemplatePicker()
-        }
+        btnAddPage.setOnClickListener { showTemplatePicker() }
     }
     
-    // Mostra la griglia con tutti i template
     private fun showTemplatePicker() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_template_picker, null)
         val recyclerTemplates = dialogView.findViewById<RecyclerView>(R.id.recyclerTemplates)
-        
-        // Carica tutti i template dalla cartella assets/templates
         val templates = TemplateManager.loadAllTemplates(this)
-        
         if (templates.isEmpty()) {
-            Toast.makeText(this, "Nessun template trovato. Aggiungi PNG in assets/templates/", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Nessun template trovato", Toast.LENGTH_LONG).show()
             return
         }
-        
-        // Configura la griglia (3 colonne)
         recyclerTemplates.layoutManager = GridLayoutManager(this, 3)
-        
-        val dialog = AlertDialog.Builder(this)
-            .setView(dialogView)
-            .setNegativeButton("Annulla", null)
-            .create()
-        
+        val dialog = AlertDialog.Builder(this).setView(dialogView).setNegativeButton("Annulla", null).create()
         val adapter = TemplateAdapter(templates) { template ->
             dialog.dismiss()
             showInsertPositionDialog(template)
         }
         recyclerTemplates.adapter = adapter
-        
         dialog.show()
     }
     
-    // Chiedi dopo quale pagina inserire il template
     private fun showInsertPositionDialog(template: TemplateManager.Template) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_page, null)
         val editPageNumber = dialogView.findViewById<EditText>(R.id.editPageNumber)
@@ -96,13 +81,12 @@ class PDFViewerActivity : AppCompatActivity() {
             .setView(dialogView)
             .setPositiveButton("Crea") { _, _ ->
                 val pageNumber = editPageNumber.text.toString().toIntOrNull() ?: 1
-                
-                // Apri la lavagna con il template scelto
                 val intent = Intent(this, WhiteboardActivity::class.java)
                 intent.putExtra("PDF_PATH", pdfPath)
                 intent.putExtra("PDF_NAME", pdfName)
                 intent.putExtra("TEMPLATE_FILE", template.fileName)
                 intent.putExtra("INSERT_AFTER", pageNumber)
+                intent.putExtra("IS_NEW_PDF", false)
                 startActivity(intent)
             }
             .setNegativeButton("Annulla", null)
@@ -113,9 +97,7 @@ class PDFViewerActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             val db = AppDatabase.getInstance(this@PDFViewerActivity)
             db.notePageDao().getPagesForPdf(pdfPath).collect { pages ->
-                runOnUiThread {
-                    loadPDFWithNotesList(pages)
-                }
+                runOnUiThread { loadPDFWithNotesList(pages) }
             }
         }
     }
@@ -128,12 +110,10 @@ class PDFViewerActivity : AppCompatActivity() {
                 finish()
                 return
             }
-            
             val inputStream = FileInputStream(file)
             val bytes = inputStream.readBytes()
             inputStream.close()
             val pdfBase64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            
             val notesJson = buildNotesJson(notePages)
             
             webView.settings.javaScriptEnabled = true
@@ -144,8 +124,8 @@ class PDFViewerActivity : AppCompatActivity() {
             webView.settings.allowFileAccess = true
             webView.settings.domStorageEnabled = true
             
-            webView.webViewClient = object : android.webkit.WebViewClient() {
-                override fun onPageFinished(view: android.webkit.WebView?, url: String?) {
+            webView.webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     Toast.makeText(this@PDFViewerActivity, "PDF caricato!", Toast.LENGTH_SHORT).show()
                 }
@@ -153,7 +133,6 @@ class PDFViewerActivity : AppCompatActivity() {
             
             val html = buildHtml(pdfBase64, notesJson)
             webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
-            
         } catch (e: Exception) {
             Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -163,13 +142,10 @@ class PDFViewerActivity : AppCompatActivity() {
         val sb = StringBuilder("[")
         notePages.forEachIndexed { index, page ->
             if (index > 0) sb.append(",")
-            
             val imageFile = File(page.imagePath)
             val imageBase64 = if (imageFile.exists()) {
-                val bytes = imageFile.readBytes()
-                Base64.encodeToString(bytes, Base64.NO_WRAP)
+                Base64.encodeToString(imageFile.readBytes(), Base64.NO_WRAP)
             } else ""
-            
             sb.append("{")
             sb.append("\"id\":${page.id},")
             sb.append("\"name\":\"${page.pageName.replace("\"", "\\\"")}\",")
@@ -182,126 +158,11 @@ class PDFViewerActivity : AppCompatActivity() {
     }
     
     private fun buildHtml(pdfBase64: String, notesJson: String): String {
-        return "<!DOCTYPE html>" +
-            "<html><head>" +
-            "<meta charset=\"UTF-8\">" +
-            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes\">" +
-            "<title>PDF Viewer</title>" +
-            "<script src=\"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js\"></script>" +
-            "<style>" +
-            "* { margin: 0; padding: 0; box-sizing: border-box; }" +
-            "body { background: #f5f0eb; font-family: sans-serif; padding-bottom: 100px; }" +
-            "#container { display: flex; flex-direction: column; align-items: center; padding: 10px; }" +
-            ".page-wrapper { position: relative; margin-bottom: 20px; width: 100%; max-width: 100%; }" +
-            ".page-label { text-align: center; padding: 6px; font-size: 13px; color: #666; background: #FFF3E0; border-radius: 8px 8px 0 0; }" +
-            ".page-label.note { background: #E3F2FD; color: #1565C0; font-weight: bold; }" +
-            "canvas, .note-image { max-width: 100% !important; height: auto !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); background: white; display: block; }" +
-            ".note-image { border: 2px solid #2196F3; }" +
-            "#controls { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(44,62,80,0.95); padding: 12px 24px; display: flex; justify-content: center; gap: 20px; align-items: center; color: white; z-index: 1000; }" +
-            "#controls button { background: none; border: none; color: white; font-size: 22px; cursor: pointer; padding: 8px 16px; border-radius: 30px; min-width: 48px; }" +
-            ".loading { text-align: center; padding: 60px 20px; font-size: 18px; color: #666; }" +
-            "</style></head><body>" +
-            "<div id=\"container\"><div class=\"loading\">Caricamento PDF...</div></div>" +
-            "<div id=\"controls\">" +
-            "<button onclick=\"window.scrollTo({top:0,behavior:'smooth'})\">&#9650;</button>" +
-            "<span id=\"pageCount\">-</span>" +
-            "<button onclick=\"window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})\">&#9660;</button>" +
-            "</div>" +
-            "<script>" +
-            "var pdfjsLib = window['pdfjs-dist/build/pdf'];" +
-            "pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';" +
-            "var notes = " + notesJson + ";" +
-            "var container = document.getElementById('container');" +
-            "var scale = 1.5;" +
-            "" +
-            "function renderAllPages() {" +
-            "  var pdfData = atob('" + pdfBase64 + "');" +
-            "  var pdfBytes = new Uint8Array(pdfData.length);" +
-            "  for (var i = 0; i < pdfData.length; i++) pdfBytes[i] = pdfData.charCodeAt(i);" +
-            "  pdfjsLib.getDocument({data: pdfBytes}).promise.then(function(pdfDoc) {" +
-            "    container.innerHTML = '';" +
-            "    var totalPdfPages = pdfDoc.numPages;" +
-            "    var notesByAfter = {};" +
-            "    notes.forEach(function(n) {" +
-            "      if (!notesByAfter[n.after]) notesByAfter[n.after] = [];" +
-            "      notesByAfter[n.after].push(n);" +
-            "    });" +
-            "    function renderPage(pdfPageNum, callback) {" +
-            "      pdfDoc.getPage(pdfPageNum).then(function(page) {" +
-            "        var viewport = page.getViewport({scale: scale});" +
-            "        var wrapper = document.createElement('div');" +
-            "        wrapper.className = 'page-wrapper';" +
-            "        var label = document.createElement('div');" +
-            "        label.className = 'page-label';" +
-            "        label.textContent = 'PDF - Pagina ' + pdfPageNum + ' di ' + totalPdfPages;" +
-            "        wrapper.appendChild(label);" +
-            "        var canvas = document.createElement('canvas');" +
-            "        var ctx = canvas.getContext('2d');" +
-            "        canvas.height = viewport.height;" +
-            "        canvas.width = viewport.width;" +
-            "        wrapper.appendChild(canvas);" +
-            "        container.appendChild(wrapper);" +
-            "        page.render({canvasContext: ctx, viewport: viewport}).promise.then(function() {" +
-            "          callback();" +
-            "        });" +
-            "      });" +
-            "    }" +
-            "    function addNotePage(note, callback) {" +
-            "      var wrapper = document.createElement('div');" +
-            "      wrapper.className = 'page-wrapper';" +
-            "      var label = document.createElement('div');" +
-            "      label.className = 'page-label note';" +
-            "      label.textContent = 'NOTA: ' + note.name;" +
-            "      wrapper.appendChild(label);" +
-            "      if (note.image) {" +
-            "        var img = document.createElement('img');" +
-            "        img.className = 'note-image';" +
-            "        img.src = 'data:image/png;base64,' + note.image;" +
-            "        wrapper.appendChild(img);" +
-            "      }" +
-            "      container.appendChild(wrapper);" +
-            "      callback();" +
-            "    }" +
-            "    function processAll(pageNum) {" +
-            "      if (pageNum > totalPdfPages) {" +
-            "        if (notesByAfter[totalPdfPages + 1]) {" +
-            "          notesByAfter[totalPdfPages + 1].forEach(function(note) { addNotePage(note, function(){}); });" +
-            "        }" +
-            "        document.getElementById('pageCount').textContent = 'Fatto';" +
-            "        return;" +
-            "      }" +
-            "      renderPage(pageNum, function() {" +
-            "        var notesForThis = notesByAfter[pageNum] || [];" +
-            "        var idx = 0;" +
-            "        function nextNote() {" +
-            "          if (idx >= notesForThis.length) {" +
-            "            processAll(pageNum + 1);" +
-            "            return;" +
-            "          }" +
-            "          addNotePage(notesForThis[idx], function() {" +
-            "            idx++;" +
-            "            nextNote();" +
-            "          });" +
-            "        }" +
-            "        nextNote();" +
-            "      });" +
-            "    }" +
-            "    processAll(1);" +
-            "  }).catch(function(e) {" +
-            "    container.innerHTML = '<div style=\"padding:40px;color:#c00;\">Errore: ' + e.message + '</div>';" +
-            "  });" +
-            "}" +
-            "renderAllPages();" +
-            "</script></body></html>"
+        return "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=3.0, user-scalable=yes\"><title>PDF Viewer</title><script src=\"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js\"></script><style>* { margin: 0; padding: 0; box-sizing: border-box; } body { background: #f5f0eb; font-family: sans-serif; padding-bottom: 100px; } #container { display: flex; flex-direction: column; align-items: center; padding: 10px; } .page-wrapper { margin-bottom: 20px; width: 100%; } .page-label { text-align: center; padding: 6px; font-size: 13px; color: #666; background: #FFF3E0; border-radius: 8px 8px 0 0; } .page-label.note { background: #E3F2FD; color: #1565C0; font-weight: bold; } canvas, .note-image { max-width: 100% !important; height: auto !important; box-shadow: 0 2px 10px rgba(0,0,0,0.1); background: white; display: block; } .note-image { border: 2px solid #2196F3; } #controls { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(44,62,80,0.95); padding: 12px; display: flex; justify-content: center; gap: 20px; color: white; z-index: 1000; } #controls button { background: none; border: none; color: white; font-size: 22px; padding: 8px 16px; } .loading { text-align: center; padding: 60px; font-size: 18px; color: #666; }</style></head><body><div id=\"container\"><div class=\"loading\">Caricamento PDF...</div></div><div id=\"controls\"><button onclick=\"window.scrollTo({top:0,behavior:'smooth'})\">&#9650;</button><span id=\"pageCount\">-</span><button onclick=\"window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})\">&#9660;</button></div><script>var pdfjsLib = window['pdfjs-dist/build/pdf'];pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';var notes = " + notesJson + ";var container = document.getElementById('container');var scale = 1.5;function renderAllPages() { var pdfData = atob('" + pdfBase64 + "'); var pdfBytes = new Uint8Array(pdfData.length); for (var i = 0; i < pdfData.length; i++) pdfBytes[i] = pdfData.charCodeAt(i); pdfjsLib.getDocument({data: pdfBytes}).promise.then(function(pdfDoc) { container.innerHTML = ''; var totalPdfPages = pdfDoc.numPages; var notesByAfter = {}; notes.forEach(function(n) { if (!notesByAfter[n.after]) notesByAfter[n.after] = []; notesByAfter[n.after].push(n); }); function renderPage(pdfPageNum, callback) { pdfDoc.getPage(pdfPageNum).then(function(page) { var viewport = page.getViewport({scale: scale}); var wrapper = document.createElement('div'); wrapper.className = 'page-wrapper'; var label = document.createElement('div'); label.className = 'page-label'; label.textContent = 'PDF - Pagina ' + pdfPageNum + ' di ' + totalPdfPages; wrapper.appendChild(label); var canvas = document.createElement('canvas'); var ctx = canvas.getContext('2d'); canvas.height = viewport.height; canvas.width = viewport.width; wrapper.appendChild(canvas); container.appendChild(wrapper); page.render({canvasContext: ctx, viewport: viewport}).promise.then(function() { callback(); }); }); } function addNotePage(note, callback) { var wrapper = document.createElement('div'); wrapper.className = 'page-wrapper'; var label = document.createElement('div'); label.className = 'page-label note'; label.textContent = 'NOTA: ' + note.name; wrapper.appendChild(label); if (note.image) { var img = document.createElement('img'); img.className = 'note-image'; img.src = 'data:image/png;base64,' + note.image; wrapper.appendChild(img); } container.appendChild(wrapper); callback(); } function processAll(pageNum) { if (pageNum > totalPdfPages) { if (notesByAfter[totalPdfPages + 1]) { notesByAfter[totalPdfPages + 1].forEach(function(note) { addNotePage(note, function(){}); }); } document.getElementById('pageCount').textContent = 'Fatto'; return; } renderPage(pageNum, function() { var notesForThis = notesByAfter[pageNum] || []; var idx = 0; function nextNote() { if (idx >= notesForThis.length) { processAll(pageNum + 1); return; } addNotePage(notesForThis[idx], function() { idx++; nextNote(); }); } nextNote(); }); } processAll(1); }).catch(function(e) { container.innerHTML = '<div style=\"padding:40px;color:#c00;\">Errore: ' + e.message + '</div>'; });} renderAllPages();</script></body></html>"
     }
     
-        override fun onResume() {
+    override fun onResume() {
         super.onResume()
-        // Ricarica il PDF quando si torna dalla lavagna
-        if (pdfPath.isNotEmpty()) {
-            loadPDFWithNotes()
-        }
-    
-        }
+        if (pdfPath.isNotEmpty()) loadPDFWithNotes()
     }
 }
