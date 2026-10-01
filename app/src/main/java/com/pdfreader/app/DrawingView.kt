@@ -214,10 +214,12 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
     fun centerView() { matrix.reset(); scaleFactor = 1f; invalidate() }
         fun getScaleFactor(): Float = scaleFactor
     
-    fun exportPathsToJson(): String {
+       fun exportPathsToJson(): String {
         val sb = StringBuilder("[")
-        paths.forEachIndexed { index, (path, paint) ->
+        paths.forEachIndexed { index, pair ->
             if (index > 0) sb.append(",")
+            val path = pair.first
+            val paint = pair.second
             sb.append("{")
             sb.append("\"color\":${paint.color},")
             sb.append("\"width\":${paint.strokeWidth},")
@@ -233,6 +235,12 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                 if (i > 0) sb.append(",")
                 sb.append("[${pos[0]},${pos[1]}]")
             }
+            sb.append("]}")
+        }
+        sb.append("]")
+        return sb.toString()
+    }
+
             sb.append("]}")
         }
         sb.append("]")
