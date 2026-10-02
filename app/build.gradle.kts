@@ -12,8 +12,8 @@ android {
         applicationId = "com.pdfreader.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "2.0"
+        versionCode = 12
+        versionName = "2.1"
     }
 
     buildFeatures {
@@ -37,7 +37,7 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.webkit:webkit:1.8.0")
     
-    // Room Database - versione compatibile con Kotlin 1.9.22
+    // Room Database
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")

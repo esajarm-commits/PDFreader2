@@ -41,13 +41,13 @@ class WhiteboardActivity : AppCompatActivity() {
     private var eraserSize = 60f
     private var textSize = 40f
     
-    // Info per il salvataggio
     private var pdfPath: String = ""
     private var pdfName: String = ""
-    private var style: String = "blank"
+    private var templateFileName: String = ""
     private var insertAfterPage: Int = 1
     private var existingPageId: Long = -1
     private var existingImagePath: String = ""
+    private var isNewPdf: Boolean = false
     
     private val colorPalette = intArrayOf(
         Color.BLACK, Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW,
@@ -74,20 +74,21 @@ class WhiteboardActivity : AppCompatActivity() {
         btnClear = findViewById(R.id.btnClear)
         btnSave = findViewById(R.id.btnSave)
         
-        // Recupera info dall'intent
         pdfPath = intent.getStringExtra("PDF_PATH") ?: ""
         pdfName = intent.getStringExtra("PDF_NAME") ?: "PDF"
-        style = intent.getStringExtra("STYLE") ?: "blank"
+        templateFileName = intent.getStringExtra("TEMPLATE_FILE") ?: ""
         insertAfterPage = intent.getIntExtra("INSERT_AFTER", 1)
         existingPageId = intent.getLongExtra("PAGE_ID", -1)
         existingImagePath = intent.getStringExtra("IMAGE_PATH") ?: ""
+        isNewPdf = intent.getBooleanExtra("IS_NEW_PDF", false)
         
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         toolbar.setNavigationOnClickListener { finish() }
         
-        // Se stiamo modificando una pagina esistente, carica l'immagine
-        if (existingImagePath.isNotEmpty()) {
+        if (templateFileName.isNotEmpty()) {
+            loadTemplateBackground(templateFileName)
+        } else if (existingImagePath.isNotEmpty()) {
             loadExistingImage(existingImagePath)
         }
         
@@ -95,18 +96,31 @@ class WhiteboardActivity : AppCompatActivity() {
         updateZoomLabel()
     }
     
+    private fun loadTemplateBackground(fileName: String) {
+        try {
+            val inputStream = assets.open("templates/$fileName")
+            val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            if (bitmap != null) drawingView.setBackgroundBitmap(bitmap)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
     private fun loadExistingImage(path: String) {
-        // TODO: caricare l'immagine esistente nel DrawingView
-        // Per ora, l'immagine viene solo mostrata come sfondo
+        try {
+            val bitmap = android.graphics.BitmapFactory.decodeFile(path)
+            if (bitmap != null) drawingView.setBackgroundBitmap(bitmap)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
     
     private fun setupButtons() {
         btnPen.setOnClickListener { activatePen() }
         btnPen.setOnLongClickListener { showPenSizeDialog(); true }
-        
         btnEraser.setOnClickListener { activateEraser() }
         btnEraser.setOnLongClickListener { showEraserSizeDialog(); true }
-        
         btnMove.setOnClickListener {
             drawingView.enableDrawing(false)
             drawingView.setEraserMode(false)
@@ -114,7 +128,6 @@ class WhiteboardActivity : AppCompatActivity() {
             btnPen.setBackgroundColor(Color.parseColor("#9E9E9E"))
             btnEraser.setBackgroundColor(Color.parseColor("#9E9E9E"))
         }
-        
         btnText.setOnClickListener { showAddTextDialog() }
         btnColor.setOnClickListener { showColorPicker() }
         btnCenter.setOnClickListener {
@@ -125,14 +138,13 @@ class WhiteboardActivity : AppCompatActivity() {
         btnClear.setOnClickListener {
             AlertDialog.Builder(this)
                 .setTitle("Cancellare tutto?")
-                .setPositiveButton("Sì") { _, _ ->
+                .setPositiveButton("Si") { _, _ ->
                     drawingView.clearAll()
                     textOverlayView.clearAll()
                 }
                 .setNegativeButton("No", null)
                 .show()
         }
-        
         btnSave.setOnClickListener { saveAndExit() }
     }
     
@@ -159,12 +171,10 @@ class WhiteboardActivity : AppCompatActivity() {
         val seekBar = dialogView.findViewById<SeekBar>(R.id.seekBarEraserSize)
         val textValue = dialogView.findViewById<TextView>(R.id.textEraserValue)
         val titleText = dialogView.findViewById<TextView>(R.id.textDialogTitle)
-        
         titleText.text = "Dimensione Penna"
         seekBar.max = 50
         seekBar.progress = Math.max(0, Math.min(50, strokeWidth.toInt() - 1))
         textValue.text = "${strokeWidth.toInt()} px"
-        
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 textValue.text = "${progress + 1} px"
@@ -172,7 +182,6 @@ class WhiteboardActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
-        
         AlertDialog.Builder(this)
             .setView(dialogView)
             .setPositiveButton("Applica") { _, _ ->
@@ -189,12 +198,10 @@ class WhiteboardActivity : AppCompatActivity() {
         val seekBar = dialogView.findViewById<SeekBar>(R.id.seekBarEraserSize)
         val textValue = dialogView.findViewById<TextView>(R.id.textEraserValue)
         val titleText = dialogView.findViewById<TextView>(R.id.textDialogTitle)
-        
         titleText.text = "Dimensione Gomma"
         seekBar.max = 200
         seekBar.progress = Math.max(0, Math.min(200, eraserSize.toInt() - 20))
         textValue.text = "${eraserSize.toInt()} px"
-        
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 textValue.text = "${progress + 20} px"
@@ -202,7 +209,6 @@ class WhiteboardActivity : AppCompatActivity() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
             override fun onStopTrackingTouch(seekBar: SeekBar?) {}
         })
-        
         AlertDialog.Builder(this)
             .setView(dialogView)
             .setPositiveButton("Applica") { _, _ ->
@@ -222,7 +228,6 @@ class WhiteboardActivity : AppCompatActivity() {
     private fun showAddTextDialog() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_text, null)
         val editText = dialogView.findViewById<EditText>(R.id.editTextInput)
-        
         AlertDialog.Builder(this)
             .setTitle("Aggiungi Testo")
             .setView(dialogView)
@@ -239,7 +244,6 @@ class WhiteboardActivity : AppCompatActivity() {
     private fun showColorPicker() {
         val colorNames = arrayOf("Nero", "Rosso", "Blu", "Verde", "Giallo",
             "Arancione", "Viola", "Ciano", "Verde Chiaro", "Grigio", "Marrone")
-        
         AlertDialog.Builder(this)
             .setTitle("Scegli colore")
             .setItems(colorNames) { _, which ->
@@ -249,12 +253,10 @@ class WhiteboardActivity : AppCompatActivity() {
             .show()
     }
     
-    // Chiedi il nome della pagina e salva
     private fun saveAndExit() {
         val dialogView = layoutInflater.inflate(R.layout.dialog_add_text, null)
         val editText = dialogView.findViewById<EditText>(R.id.editTextInput)
-        editText.hint = "Nome della pagina (es. Appunti 1)"
-        
+        editText.hint = "Nome della pagina"
         AlertDialog.Builder(this)
             .setTitle("Salva Pagina")
             .setView(dialogView)
@@ -272,39 +274,56 @@ class WhiteboardActivity : AppCompatActivity() {
     
     private fun savePageToDatabase(pageName: String) {
         try {
-            // 1. Crea la bitmap
-            val bitmap = Bitmap.createBitmap(
-                drawingView.width.coerceAtLeast(595),
-                drawingView.height.coerceAtLeast(842),
-                Bitmap.Config.ARGB_8888
-            )
+            // ALTA RISOLUZIONE: A4 a 300 DPI = 2480 x 3508 pixel
+            val pageWidth = 2480
+            val pageHeight = 3508
+            
+            val bitmap = Bitmap.createBitmap(pageWidth, pageHeight, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             canvas.drawColor(Color.WHITE)
             
-            // Disegna lo sfondo in base allo stile
-            drawStyledBackground(canvas, bitmap.width, bitmap.height, style)
+            val scaleX = pageWidth.toFloat() / drawingView.width
+            val scaleY = pageHeight.toFloat() / drawingView.height
+            canvas.scale(scaleX, scaleY)
             
-            // Disegna i contenuti della lavagna
+            drawingView.drawBackground(canvas)
             drawingView.draw(canvas)
             textOverlayView.draw(canvas)
             
-            // 2. Salva l'immagine nella memoria interna
+            canvas.scale(1f / scaleX, 1f / scaleY)
+            
+            if (isNewPdf) {
+                val pdfFile = File(filesDir, "${pdfName.replace(" ", "_")}.pdf")
+                val pdfDocument = android.graphics.pdf.PdfDocument()
+                val pageInfo = android.graphics.pdf.PdfDocument.PageInfo.Builder(
+                    pageWidth, pageHeight, 1
+                ).create()
+                val page = pdfDocument.startPage(pageInfo)
+                page.canvas.drawBitmap(bitmap, 0f, 0f, null)
+                pdfDocument.finishPage(page)
+                FileOutputStream(pdfFile).use { out -> pdfDocument.writeTo(out) }
+                pdfDocument.close()
+                runOnUiThread {
+                    Toast.makeText(this@WhiteboardActivity, "PDF creato: ${pdfFile.name}", Toast.LENGTH_LONG).show()
+                    finish()
+                }
+                return
+            }
+            
             val imagesDir = File(filesDir, "note_pages")
             if (!imagesDir.exists()) imagesDir.mkdirs()
-            
             val imageFile = File(imagesDir, "page_${System.currentTimeMillis()}.png")
             FileOutputStream(imageFile).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             }
             
-            // 3. Salva nel database
             val db = AppDatabase.getInstance(this)
             val page = NotePage(
                 id = if (existingPageId > 0) existingPageId else 0,
                 pdfPath = pdfPath,
                 pdfName = pdfName,
                 pageName = pageName,
-                style = style,
+                style = templateFileName,
                 insertAfterPage = insertAfterPage,
                 imagePath = imageFile.absolutePath
             )
@@ -315,66 +334,13 @@ class WhiteboardActivity : AppCompatActivity() {
                 } else {
                     db.notePageDao().insert(page)
                 }
-                
                 runOnUiThread {
                     Toast.makeText(this@WhiteboardActivity, "Pagina salvata: $pageName", Toast.LENGTH_LONG).show()
                     finish()
                 }
             }
-            
         } catch (e: Exception) {
             Toast.makeText(this, "Errore: ${e.message}", Toast.LENGTH_LONG).show()
-        }
-    }
-    
-    private fun drawStyledBackground(canvas: Canvas, width: Int, height: Int, style: String) {
-        val linePaint = android.graphics.Paint().apply {
-            color = Color.parseColor("#CCCCCC")
-            strokeWidth = 1f
-            isAntiAlias = true
-            this.style = android.graphics.Paint.Style.STROKE
-        }
-        
-        val dotPaint = android.graphics.Paint().apply {
-            color = Color.parseColor("#999999")
-            this.style = android.graphics.Paint.Style.FILL
-            isAntiAlias = true
-        }
-        
-        when (style) {
-            "lined" -> {
-                val spacing = 40f
-                var y = 60f
-                while (y < height - 60) {
-                    canvas.drawLine(40f, y, width - 40f, y, linePaint)
-                    y += spacing
-                }
-            }
-            "grid" -> {
-                val spacing = 40f
-                var x = 40f
-                while (x < width - 40) {
-                    canvas.drawLine(x, 40f, x, height - 40f, linePaint)
-                    x += spacing
-                }
-                var y = 40f
-                while (y < height - 40) {
-                    canvas.drawLine(40f, y, width - 40f, y, linePaint)
-                    y += spacing
-                }
-            }
-            "dotted" -> {
-                val spacing = 40f
-                var y = 60f
-                while (y < height - 60) {
-                    var x = 60f
-                    while (x < width - 60) {
-                        canvas.drawCircle(x, y, 3f, dotPaint)
-                        x += spacing
-                    }
-                    y += spacing
-                }
-            }
         }
     }
 }
