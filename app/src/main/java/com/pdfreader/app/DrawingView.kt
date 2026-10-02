@@ -29,9 +29,8 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         style = Paint.Style.STROKE
         strokeJoin = Paint.Join.ROUND
         strokeCap = Paint.Cap.ROUND
-        color = Color.TRANSPARENT
+        color = Color.WHITE
         strokeWidth = 40f
-        xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR)
     }
     
     private var currentPath = Path()
@@ -73,7 +72,7 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         override fun onScaleEnd(detector: ScaleGestureDetector) { isScaling = false }
     })
     
-    init { setLayerType(View.LAYER_TYPE_HARDWARE, null) }
+    init { setLayerType(View.LAYER_TYPE_SOFTWARE, null) }
     
     fun setBackgroundBitmap(bitmap: Bitmap) {
         backgroundBitmap = bitmap
@@ -88,16 +87,21 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         super.onDraw(canvas)
         canvas.save()
         canvas.concat(matrix)
+        
         backgroundBitmap?.let { bg -> canvas.drawBitmap(bg, 0f, 0f, null) }
+        
         paths.forEach { pair -> canvas.drawPath(pair.first, pair.second) }
         canvas.drawPath(currentPath, currentPaint)
+        
         canvas.restore()
     }
     
     override fun onTouchEvent(event: MotionEvent): Boolean {
         scaleDetector.onTouchEvent(event)
         if (isScaling) return true
+        
         val pointerCount = event.pointerCount
+        
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 lastX = event.x
@@ -112,7 +116,8 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                     val fx = (event.getX(0) + event.getX(1)) / 2f
                     val fy = (event.getY(0) + event.getY(1)) / 2f
                     lastFocus.set(fx, fy)
-                    lastX = fx; lastY = fy
+                    lastX = fx
+                    lastY = fy
                 }
                 return true
             }
@@ -124,7 +129,8 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
                     val dy = fy - lastY
                     matrix.postTranslate(dx, dy)
                     invalidate()
-                    lastX = fx; lastY = fy
+                    lastX = fx
+                    lastY = fy
                     return true
                 }
                 if (pointerCount == 1 && isDrawingEnabled && !currentPath.isEmpty) {
@@ -156,7 +162,8 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         currentPath.moveTo(worldPoint[0], worldPoint[1])
         currentPaint = if (isEraserMode) eraserPaint else drawPaint
         currentPaint.strokeWidth = (if (isEraserMode) eraserPaint.strokeWidth else drawPaint.strokeWidth) / scaleFactor
-        lastX = screenX; lastY = screenY
+        lastX = screenX
+        lastY = screenY
         invalidate()
     }
     
@@ -226,32 +233,5 @@ class DrawingView(context: Context, attrs: AttributeSet?) : View(context, attrs)
         }
         sb.append("]")
         return sb.toString()
-    }
-    
-    fun importPathsFromJson(json: String) {
-        try {
-            val array = org.json.JSONArray(json)
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                val color = obj.getInt("color")
-                val width = obj.getDouble("width").toFloat()
-                val points = obj.getJSONArray("points")
-                val path = Path()
-                for (j in 0 until points.length()) {
-                    val point = points.getJSONArray(j)
-                    val x = point.getDouble(0).toFloat()
-                    val y = point.getDouble(1).toFloat()
-                    if (j == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                }
-                val paint = Paint(drawPaint).apply {
-                    this.color = color
-                    strokeWidth = width
-                }
-                paths.add(path to paint)
-            }
-            invalidate()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 }

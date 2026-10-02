@@ -46,7 +46,6 @@ class WhiteboardActivity : AppCompatActivity() {
     private var templateFileName: String = ""
     private var insertAfterPage: Int = 1
     private var existingPageId: Long = -1
-    private var existingImagePath: String = ""
     private var isNewPdf: Boolean = false
     
     private val colorPalette = intArrayOf(
@@ -79,7 +78,6 @@ class WhiteboardActivity : AppCompatActivity() {
         templateFileName = intent.getStringExtra("TEMPLATE_FILE") ?: ""
         insertAfterPage = intent.getIntExtra("INSERT_AFTER", 1)
         existingPageId = intent.getLongExtra("PAGE_ID", -1)
-        existingImagePath = intent.getStringExtra("IMAGE_PATH") ?: ""
         isNewPdf = intent.getBooleanExtra("IS_NEW_PDF", false)
         
         setSupportActionBar(toolbar)
@@ -87,9 +85,9 @@ class WhiteboardActivity : AppCompatActivity() {
         toolbar.setNavigationOnClickListener { finish() }
         
         if (templateFileName.isNotEmpty()) {
-            loadTemplateBackground(templateFileName)
-        } else if (existingImagePath.isNotEmpty()) {
-            loadExistingImage(existingImagePath)
+            drawingView.post {
+                loadTemplateBackground(templateFileName)
+            }
         }
         
         setupButtons()
@@ -101,16 +99,15 @@ class WhiteboardActivity : AppCompatActivity() {
             val inputStream = assets.open("templates/$fileName")
             val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
             inputStream.close()
-            if (bitmap != null) drawingView.setBackgroundBitmap(bitmap)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-    
-    private fun loadExistingImage(path: String) {
-        try {
-            val bitmap = android.graphics.BitmapFactory.decodeFile(path)
-            if (bitmap != null) drawingView.setBackgroundBitmap(bitmap)
+            if (bitmap != null) {
+                val scaled = Bitmap.createScaledBitmap(
+                    bitmap,
+                    drawingView.width.coerceAtLeast(595),
+                    drawingView.height.coerceAtLeast(842),
+                    true
+                )
+                drawingView.setBackgroundBitmap(scaled)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -274,7 +271,6 @@ class WhiteboardActivity : AppCompatActivity() {
     
     private fun savePageToDatabase(pageName: String) {
         try {
-            // ALTA RISOLUZIONE: A4 a 300 DPI = 2480 x 3508 pixel
             val pageWidth = 2480
             val pageHeight = 3508
             
@@ -312,7 +308,8 @@ class WhiteboardActivity : AppCompatActivity() {
             
             val imagesDir = File(filesDir, "note_pages")
             if (!imagesDir.exists()) imagesDir.mkdirs()
-            val imageFile = File(imagesDir, "page_${System.currentTimeMillis()}.png")
+            val timestamp = System.currentTimeMillis()
+            val imageFile = File(imagesDir, "page_${timestamp}.png")
             FileOutputStream(imageFile).use { out ->
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
             }

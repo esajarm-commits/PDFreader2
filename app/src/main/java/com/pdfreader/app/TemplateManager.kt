@@ -25,9 +25,7 @@ object TemplateManager {
                         val inputStream = context.assets.open("templates/$fileName")
                         val bitmap = BitmapFactory.decodeStream(inputStream)
                         inputStream.close()
-                        
                         if (bitmap != null) {
-                            // Crea un nome leggibile
                             val displayName = fileName
                                 .replace(".png", "", ignoreCase = true)
                                 .replace(".jpg", "", ignoreCase = true)
@@ -36,10 +34,7 @@ object TemplateManager {
                                 .replace("-", " ")
                                 .split(" ")
                                 .filter { it.isNotEmpty() }
-                                .joinToString(" ") { 
-                                    it.replaceFirstChar { c -> c.uppercase() } 
-                                }
-                            
+                                .joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
                             templates.add(Template(fileName, displayName, bitmap))
                         }
                     } catch (e: IOException) {
